@@ -211,7 +211,6 @@ contrib = sim.CONTRIBUCION if contribuye else 0.0
 #  promesa, y el ahorro depende del reparto. El número honesto aparece abajo,
 #  ya calculado con los datos de quien pregunta.
 st.title("Ahorra en tu factura con WE Power")
-st.subheader("sin instalar un solo panel.")
 
 por_kwh = st.toggle("Prefiero escribir mi consumo en kWh",
                     help="Por defecto te pedimos la factura porque es el número "
@@ -231,7 +230,6 @@ else:
     consumo = factura_mes / (cu * (1 + contrib))
     st.caption(f"Eso son unos {num(consumo)} kWh al mes.")
 
-st.caption("✓ Sin inversión  ·  ✓ Sin obra  ·  ✓ Sigues con tu mismo comercializador")
 
 
 # --- Validaciones ----------------------------------------------------------
