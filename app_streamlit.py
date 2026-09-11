@@ -95,9 +95,9 @@ AYUDA = {
         "factura es menor que el descuento por kWh.",
 
     "conservador":
-        "Asume que la comunidad crece y tu tajada baja hasta el piso: la porción "
-        "más pequeña que tiene un miembro hoy. Responde a '¿y si entra mucha "
-        "gente después de mí?'.",
+        "El piso. Asume que la comunidad se llena de miembros y tu porción baja "
+        "hasta la más pequeña que tiene alguien hoy. La regulación no fija un "
+        "mínimo: este es el piso observado de esta comunidad.",
 
     "tucaso":
         "Lo que te tocaría si entraras este mes, con los miembros que hay hoy. "
@@ -105,9 +105,9 @@ AYUDA = {
         "con la misma cobertura.",
 
     "optimo":
-        "Tu techo. Es el 80 % de tu consumo, o el 9,9 % de la planta si ese "
-        "muerde primero. Solo lo alcanzarías si la comunidad tuviera energía de "
-        "sobra para ti.",
+        "Tu techo: el 80 % de tu consumo, o el 9,9 % de la planta si ese muerde "
+        "primero. Es lo máximo que la regulación y las reglas de la comunidad "
+        "permiten asignarte.",
 
     "descuento":
         "Lo que te ahorras en cada kWh que te entrega la comunidad, comparado "
@@ -143,7 +143,7 @@ AYUDA = {
 # LA PÁGINA
 # =========================================================
 
-st.set_page_config(page_title="Ahorra en tu factura de luz",
+st.set_page_config(page_title="WE Power · Ahorra en tu factura",
                    page_icon="⚡", layout="centered")
 
 st.markdown("""
@@ -156,6 +156,9 @@ st.markdown("""
   .grande    { font-size: 3.2rem; font-weight: 800; line-height: 1.05; margin: 0; }
   .bajo      { color: #666; margin-top: .2rem; }
   .pilar     { font-size: 0.92rem; color: #444; }
+  /* Imita el st.caption, pero admite HTML: lo necesitamos para el <abbr>. */
+  .nota      { font-size: 0.875rem; color: rgba(49,51,63,.6); margin-top: -.5rem; }
+  .nota abbr { text-decoration: underline dotted; cursor: help; }
   /* Las tarjetas del rango son angostas: el número se corta con el tamaño
      que Streamlit le pone por defecto a st.metric. */
   div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMetricValue"] {
@@ -204,10 +207,11 @@ contrib = sim.CONTRIBUCION if contribuye else 0.0
 # BLOQUE 1 — HERO
 # =========================================================
 
-st.title("Baja tu factura de luz hasta un 20\u00a0%")
+#  El titular NO lleva porcentaje: cualquier cifra ahí arriba se lee como
+#  promesa, y el ahorro depende del reparto. El número honesto aparece abajo,
+#  ya calculado con los datos de quien pregunta.
+st.title("Ahorra en tu factura con WE Power")
 st.subheader("sin instalar un solo panel.")
-st.write("Energía solar de una comunidad energética, conectada a tu medidor "
-         "actual. Sin obra, sin inversión, sin cambiar de comercializador.")
 
 por_kwh = st.toggle("Prefiero escribir mi consumo en kWh",
                     help="Por defecto te pedimos la factura porque es el número "
@@ -294,8 +298,16 @@ with c2:
                    "kWh multiplicado por la cobertura.")
 
 st.progress(min(1.0, r["cobertura"]))
-st.caption(f"La comunidad pone el {pct(r['cobertura'], 1)} de tu energía. "
-           f"El resto sigue viniendo de la red.")
+
+#  Aquí sí aparece el PDE, en letra chica y con su definición en el <abbr>:
+#  es el dato que el usuario va a ver en el formulario de conexión, así que
+#  conviene que lo reconozca, pero no es lo que le vende la idea.
+st.markdown(
+    f"<div class='nota'>La comunidad pone el <b>{pct(r['cobertura'], 1)}</b> de tu "
+    f"energía, con un <abbr title=\"{AYUDA['pde']}\">PDE</abbr> del "
+    f"<b>{pct(pde_medio, 2)}</b> de nuestra generación actual. "
+    f"El resto sigue viniendo de la red.</div>",
+    unsafe_allow_html=True)
 
 
 # =========================================================
@@ -310,13 +322,15 @@ st.caption("Depende de cuánta energía te alcance a entregar la comunidad. "
 
 t1, t2, t3 = st.columns(3)
 
+#  El detalle de cada escenario vive en el tooltip, no en la tarjeta. Abajo de
+#  cada número va una sola línea: cuándo pasa ese escenario.
 ESCENARIOS = [
-    (t1, "Conservador", r_min, AYUDA["conservador"], False,
-     "El piso: la tajada más pequeña que tiene un miembro hoy."),
+    (t1, "Mínimo", r_min, AYUDA["conservador"], False,
+     "Si la comunidad se llena de miembros."),
     (t2, "Tu caso hoy", r, AYUDA["tucaso"], True,
-     "Lo que te tocaría si entraras este mes."),
-    (t3, "Óptimo", r_max, AYUDA["optimo"], False,
-     f"Tu techo: el {pct(sim.TOPE_CONSUMO, 0)} de tu consumo."),
+     "Con los miembros que hay hoy."),
+    (t3, "Máximo", r_max, AYUDA["optimo"], False,
+     "Si la comunidad tiene energía disponible para ti."),
 ]
 
 for col, etiqueta, res, ayuda, destacada, pie in ESCENARIOS:
@@ -337,9 +351,10 @@ for col, etiqueta, res, ayuda, destacada, pie in ESCENARIOS:
 
 if piso_colapsa:
     st.caption("Tu consumo es pequeño frente a la planta: ya estás en el piso, "
-               "así que el escenario conservador y el actual son el mismo.")
+               "así que el mínimo y tu caso de hoy son el mismo.")
 if techo_colapsa:
-    st.caption("Ya estás en tu techo: no hay escenario mejor que este.")
+    st.caption("Ya estás en tu máximo: la comunidad te está dando todo lo que "
+               "te puede dar.")
 
 
 # =========================================================
@@ -370,18 +385,16 @@ with st.container(border=True):
 
 
 # =========================================================
-# BLOQUE 5 y 6 — CONFIANZA Y CIERRE
+# BLOQUE 5 — CONFIANZA
 # =========================================================
+#  Aquí iba el botón de registro. Se quitó: esto es un simulador, no el
+#  portal de suscripción, y un botón que no lleva a ninguna parte resta
+#  credibilidad en vez de sumarla.
 
 st.divider()
 st.caption(f"{len(sim.USUARIOS_BASE)} miembros activos  ·  "
            f"{num(sim.GENERACION_ANUAL_KWH)} kWh/año  ·  100 % solar  ·  "
            f"Amparado por las Resoluciones CREG 174 de 2021 y 101 072 de 2025.")
-
-st.subheader("Empieza a ahorrar el próximo ciclo de facturación")
-st.button("Registrarme  →", type="primary", width='stretch')
-st.caption("Te pedimos una factura reciente. El trámite ante el comercializador "
-           "lo hacemos nosotros.")
 
 
 # =========================================================
@@ -420,19 +433,19 @@ with st.expander("Ver el detalle técnico"):
     # ---------- Los tres escenarios en PDE ----------
     st.markdown("**Los tres escenarios, en PDE**")
     st.dataframe(pd.DataFrame([
-        {"Escenario": "Conservador", "PDE": pct(pde_min, 3),
+        {"Escenario": "Mínimo", "PDE": pct(pde_min, 3),
          "kWh/mes": num(r_min["asignada"]), "Cobertura": pct(r_min["cobertura"], 1),
          "Ahorro/mes": cop(r_min["ahorro_mes"]), "% factura": pct(r_min["ahorro_pct"], 2)},
         {"Escenario": "Tu caso hoy", "PDE": pct(pde_medio, 3),
          "kWh/mes": num(r["asignada"]), "Cobertura": pct(r["cobertura"], 1),
          "Ahorro/mes": cop(r["ahorro_mes"]), "% factura": pct(r["ahorro_pct"], 2)},
-        {"Escenario": "Óptimo", "PDE": pct(pde_max, 3),
+        {"Escenario": "Máximo", "PDE": pct(pde_max, 3),
          "kWh/mes": num(r_max["asignada"]), "Cobertura": pct(r_max["cobertura"], 1),
          "Ahorro/mes": cop(r_max["ahorro_mes"]), "% factura": pct(r_max["ahorro_pct"], 2)},
     ]), hide_index=True, width='stretch')
-    st.caption(f"Conservador = min({pct(PDE_PISO_CONSERVADOR, 0)}, PDE del reparto). "
+    st.caption(f"Mínimo = min({pct(PDE_PISO_CONSERVADOR, 0)}, PDE del reparto). "
                f"El tope evita que un PDE fijo supere el techo individual en "
-               f"consumos pequeños. Óptimo = min({pct(sim.PDE_MAXIMO_LEGAL, 1)} legal, "
+               f"consumos pequeños. Máximo = min({pct(sim.PDE_MAXIMO_LEGAL, 1)} legal, "
                f"{pct(sim.TOPE_CONSUMO, 0)} del consumo).")
 
     # ---------- Reparto ----------
