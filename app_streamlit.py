@@ -96,11 +96,10 @@ AYUDA = {
 
     "conservador":
         "El piso. Asume que la comunidad se llena de miembros y tu porción baja "
-        "hasta la más pequeña que tiene alguien hoy. La regulación no fija un "
-        "mínimo: este es el piso observado de esta comunidad.",
+        "hasta la más pequeña que tiene alguien hoy.",
 
     "tucaso":
-        "Lo que te tocaría si entraras este mes, con los miembros que hay hoy. "
+        "Lo que te tocaría si entraras este mes. "
         "La generación se reparte proporcional al consumo, así que todos quedan "
         "con la misma cobertura.",
 
