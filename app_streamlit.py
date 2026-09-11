@@ -6,18 +6,19 @@
 #      1. Instalar una sola vez:   pip install streamlit
 #      2. Dejar este archivo junto a simulador_ce.py
 #      3. Correr:                  streamlit run app_streamlit.py
-#      4. Se abre solo en el navegador
 #
 #  IMPORTANTE: aquí NO se calcula nada. Toda la matemática vive en
 #  simulador_ce.py; este archivo solo pide los datos, llama a esas
-#  funciones y muestra el resultado. Si cambias una fórmula allá,
-#  esta interfaz cambia sola.
+#  funciones y muestra el resultado.
 #
-#  Para entender Streamlit basta con saber tres cosas:
-#      st.number_input(...)  ->  una casilla para escribir un número
-#      st.metric(...)        ->  un número grande destacado
-#      st.dataframe(...)     ->  una tabla
-#  Todo lo demás es Python normal.
+#  La pantalla está partida en dos capas:
+#      ARRIBA  -> lo que ve una persona común. Un solo dato de entrada,
+#                 un número grande, tres escenarios. Cero jerga.
+#      ABAJO   -> "Ver el detalle técnico", colapsado. Ahí vive todo lo
+#                 que se necesita para sustentar el modelo.
+#
+#  Las explicaciones NO ocupan espacio: van en el signo de interrogación
+#  de cada elemento (el parámetro help=). Se leen pasando el mouse.
 # =========================================================
 
 import os
@@ -52,67 +53,204 @@ def esc(texto):
     return texto.replace("$", "\\$")
 
 
+def millones(v):
+    """Para las tarjetas: $ 32,9 M en vez de $ 32.888.363."""
+    return "$ " + f"{v / 1_000_000:,.1f}".replace(".", ",") + " M"
+
+
+# --- Regla de negocio que todavía vive aquí --------------------------------
+# NOTA: esto es lógica regulatoria en la capa de presentación. Lo ideal es
+# moverlo a simulador_ce.py como techo_individual(consumo). Se deja aquí
+# mientras tanto para no tocar el modelo base.
+PDE_PISO_CONSERVADOR = 0.03      # tajada más pequeña observada en la comunidad
+
+
+def techo_individual(consumo):
+    """El PDE más alto que puede recibir un usuario: el que muerda primero."""
+    return min(sim.PDE_MAXIMO_LEGAL,
+               sim.TOPE_CONSUMO * consumo / sim.GENERACION_MENSUAL_KWH)
+
+
+# =========================================================
+# LOS TEXTOS DE AYUDA  (el "?" de cada elemento)
+# =========================================================
+# Se agrupan aquí para poder ajustarlos sin buscar por todo el archivo.
+
+AYUDA = {
+    "factura":
+        "El total de tu última factura de energía. Si no la tienes a mano, "
+        "un estimado sirve.",
+
+    "consumo":
+        "Tu consumo promedio de los últimos 6 a 12 meses.",
+
+    "ahorro":
+        "Lo que dejarías de pagar cada mes. Es tu factura de hoy menos la suma "
+        "de lo que le pagarías a la red por la energía que ella siga poniendo, "
+        "más lo que le pagarías a la comunidad por la suya.",
+
+    "cobertura":
+        "Cuánta de tu energía pone la comunidad. El resto se lo sigues "
+        "comprando a la red al precio de siempre. Por eso el ahorro de la "
+        "factura es menor que el descuento por kWh.",
+
+    "conservador":
+        "Asume que la comunidad crece y tu tajada baja hasta el piso: la porción "
+        "más pequeña que tiene un miembro hoy. Responde a '¿y si entra mucha "
+        "gente después de mí?'.",
+
+    "tucaso":
+        "Lo que te tocaría si entraras este mes, con los miembros que hay hoy. "
+        "La generación se reparte proporcional al consumo, así que todos quedan "
+        "con la misma cobertura.",
+
+    "optimo":
+        "Tu techo. Es el 80 % de tu consumo, o el 9,9 % de la planta si ese "
+        "muerde primero. Solo lo alcanzarías si la comunidad tuviera energía de "
+        "sobra para ti.",
+
+    "descuento":
+        "Lo que te ahorras en cada kWh que te entrega la comunidad, comparado "
+        "con lo que ese mismo kWh te cuesta hoy en la red con contribución "
+        "incluida.",
+
+    "cu":
+        "El valor por kWh de tu factura, antes de contribución.",
+
+    "cv":
+        "Comercialización. Ya está dentro del CU. El comercializador lo cobra "
+        "por cada kWh permutado (Art. 26, Res. CREG 174/2021).",
+
+    "contribuye":
+        "Sí: estratos 5 y 6 y comerciales. No: industriales exentos por código "
+        "CIIU (Ley 1430/2010, art. 2).",
+
+    "cu_ce":
+        "El precio al que la comunidad te venderá el kWh. Es lo que se negocia.",
+
+    "anios":
+        "Para la proyección. Se asume que la tarifa de red sube más rápido que "
+        "el precio de la comunidad, así que la brecha se abre con los años.",
+
+    "pde":
+        "Porcentaje de Distribución de Excedentes: la tajada de la generación de "
+        "la planta que te corresponde. Los PDE de todos los miembros suman 100 % "
+        "y ninguno puede llegar al 10 % (Art. 20 num. 1, Res. CREG 101 072/2025).",
+}
+
+
 # =========================================================
 # LA PÁGINA
 # =========================================================
 
-st.set_page_config(page_title="Simulador · Comunidad Energética",
-                   page_icon="⚡", layout="wide")
+st.set_page_config(page_title="Ahorra en tu factura de luz",
+                   page_icon="⚡", layout="centered")
 
-st.title("Simulador de ingreso · Comunidad Energética")
-st.caption("Estimador de ahorro para un usuario que quiere entrar a la comunidad")
+st.markdown("""
+<style>
+  .destacada { border: 2px solid #2E7D32 !important; }
+  .etiqueta  { font-size: 0.75rem; letter-spacing: .08em; text-transform: uppercase;
+               color: #2E7D32; font-weight: 700; margin-bottom: .2rem; }
+  .etiqueta-gris { font-size: 0.75rem; letter-spacing: .08em; text-transform: uppercase;
+               color: #888; font-weight: 700; margin-bottom: .2rem; }
+  .grande    { font-size: 3.2rem; font-weight: 800; line-height: 1.05; margin: 0; }
+  .bajo      { color: #666; margin-top: .2rem; }
+  .pilar     { font-size: 0.92rem; color: #444; }
+  /* Las tarjetas del rango son angostas: el número se corta con el tamaño
+     que Streamlit le pone por defecto a st.metric. */
+  div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMetricValue"] {
+      font-size: 1.5rem;
+  }
+</style>
+""", unsafe_allow_html=True)
 
 
-# --- Los datos que pide, todos de su factura ------------------------------
+# =========================================================
+# SUPUESTOS  (todo lo técnico, fuera del camino)
+# =========================================================
+
 with st.sidebar:
-    st.header("Datos de su factura")
+    st.header("Ajustar supuestos")
+    st.caption("Vienen con los valores de la comunidad. Solo tócalos si sabes "
+               "lo que estás cambiando.")
 
     cu = st.number_input("Costo unitario CU (COP/kWh)",
                          min_value=1.0, max_value=5000.0, value=915.0, step=1.0,
-                         help="El valor por kWh de su factura, antes de contribución")
+                         help=AYUDA["cu"])
 
     cv = st.number_input("Componente Cv (COP/kWh)",
                          min_value=0.0, max_value=5000.0, value=130.0, step=1.0,
-                         help="Comercialización. Ya está dentro del CU; el comercializador "
-                              "lo cobra por cada kWh permutado (Art. 26)")
+                         help=AYUDA["cv"])
 
     contribuye = st.checkbox("Paga contribución del 20 %", value=True,
-                             help="Sí: estratos 5 y 6, comerciales. "
-                                  "No: industriales exentos por CIIU (Ley 1430/2010)")
-
-    consumo = st.number_input("Consumo promedio mensual (kWh)",
-                              min_value=1.0, value=15000.0, step=100.0,
-                              help="Promedio de los últimos 6 a 12 meses")
+                             help=AYUDA["contribuye"])
 
     cu_ce = st.number_input("Precio acordado con la CE (COP/kWh)",
                             min_value=1.0, value=693.5, step=1.0,
-                            help="El precio al que la comunidad le venderá el kWh")
+                            help=AYUDA["cu_ce"])
 
-    anios = st.number_input("Período de análisis (años)",
-                            min_value=1, max_value=25, value=5, step=1)
+    anios = st.number_input("Período de proyección (años)",
+                            min_value=1, max_value=25, value=5, step=1,
+                            help=AYUDA["anios"])
 
     st.divider()
     st.caption(f"Planta: {num(sim.GENERACION_MENSUAL_KWH)} kWh/mes  ·  "
                f"{len(sim.USUARIOS_BASE)} miembros actuales")
 
-
 contrib = sim.CONTRIBUCION if contribuye else 0.0
 
-# --- Validaciones de entrada ----------------------------------------------
+
+# =========================================================
+# BLOQUE 1 — HERO
+# =========================================================
+
+st.title("Baja tu factura de luz hasta un 20\u00a0%")
+st.subheader("sin instalar un solo panel.")
+st.write("Energía solar de una comunidad energética, conectada a tu medidor "
+         "actual. Sin obra, sin inversión, sin cambiar de comercializador.")
+
+por_kwh = st.toggle("Prefiero escribir mi consumo en kWh",
+                    help="Por defecto te pedimos la factura porque es el número "
+                         "que todo el mundo se sabe. El consumo se deduce solo.")
+
+if por_kwh:
+    consumo = st.number_input("¿Cuánto consumes al mes? (kWh)",
+                              min_value=1.0, value=15000.0, step=100.0,
+                              help=AYUDA["consumo"])
+    factura_mes = consumo * cu * (1 + contrib)
+    st.caption(esc(f"Eso equivale a una factura de unos {cop(factura_mes)} al mes."))
+else:
+    factura_mes = st.number_input("¿Cuánto pagas de luz al mes?",
+                                  min_value=1000.0, value=16_470_000.0,
+                                  step=100_000.0, format="%.0f",
+                                  help=AYUDA["factura"])
+    consumo = factura_mes / (cu * (1 + contrib))
+    st.caption(f"Eso son unos {num(consumo)} kWh al mes.")
+
+st.caption("✓ Sin inversión  ·  ✓ Sin obra  ·  ✓ Sigues con tu mismo comercializador")
+
+
+# --- Validaciones ----------------------------------------------------------
 if cv > cu:
-    st.error("El Cv no puede ser mayor que el CU.")
+    st.error("El Cv no puede ser mayor que el CU. Revisa los supuestos.")
     st.stop()
 
 umb = sim.umbrales_precio(cu, cv, contrib)
 au = sim.ahorro_unitario_tipo1(cu, cv, cu_ce, contrib)
 
 if cu_ce >= umb["techo_absoluto"]:
-    st.error(esc(f"Con un precio de {cop(cu_ce, 2)} por kWh el usuario **NO ahorra nada**. "
-                 f"El CU_CE tendría que bajar de {cop(umb['techo_absoluto'], 2)}."))
+    st.error(esc(f"Con un precio de {cop(cu_ce, 2)} por kWh no habría ahorro. "
+                 f"El precio de la comunidad tendría que bajar de "
+                 f"{cop(umb['techo_absoluto'], 2)}."))
     st.stop()
 
 
-# --- El reparto: se recalculan TODOS los PDE incluyendo al nuevo -----------
+# =========================================================
+# LOS TRES ESCENARIOS
+# =========================================================
+#  Los tres son la MISMA función del modelo con tres PDE distintos.
+#  Lo único que cambia entre ellos es la cobertura.
+
 usuarios = [dict(u) for u in sim.USUARIOS_BASE] + [
     {"contrato": "NUEVO", "promedio": consumo, "pde_actual": None}]
 
@@ -122,131 +260,234 @@ except ValueError as e:
     st.error(str(e))
     st.stop()
 
-pde_nuevo = pdes[-1]
-r = sim.balance_mensual(consumo, pde_nuevo, cu, cv, cu_ce, contrib)
+pde_medio = pdes[-1]
+pde_max = techo_individual(consumo)
 
-# Escenario máximo: el techo propio del usuario
-pde_max = min(sim.PDE_MAXIMO_LEGAL,
-              sim.TOPE_CONSUMO * consumo / sim.GENERACION_MENSUAL_KWH)
+#  El piso se topa contra el escenario medio. Sin ese tope, un PDE fijo del 3 %
+#  (4.500 kWh) supera el techo de cualquier usuario que consuma menos de 5.625
+#  kWh/mes, y el "mínimo" quedaría por encima del "máximo".
+pde_min = min(PDE_PISO_CONSERVADOR, pde_medio)
+
+r_min = sim.balance_mensual(consumo, pde_min, cu, cv, cu_ce, contrib)
+r = sim.balance_mensual(consumo, pde_medio, cu, cv, cu_ce, contrib)
 r_max = sim.balance_mensual(consumo, pde_max, cu, cv, cu_ce, contrib)
 
+piso_colapsa = abs(pde_min - pde_medio) < 1e-9
+techo_colapsa = abs(pde_max - pde_medio) < 1e-9
+
 
 # =========================================================
-# 1. EL AHORRO
+# BLOQUE 2 — EL NÚMERO
 # =========================================================
-st.subheader("Su ahorro estimado")
 
-c1, c2 = st.columns(2)
+st.divider()
+
+c1, c2 = st.columns([3, 2])
 with c1:
-    st.metric("Esperado", cop(r["ahorro_mes"]) + " / mes",
-              f"{cop(r['ahorro_anual'])} al año".replace("$ ", ""), delta_color="off")
-    st.caption(f"{pct(r['ahorro_pct'])} de su factura  ·  "
-               f"{num(r['asignada'])} kWh/mes  ·  PDE {pct(pde_nuevo, 3)}")
+    st.metric("Tu ahorro estimado",
+              cop(r["ahorro_mes"]) + " / mes",
+              f"{cop(r['ahorro_anual'])} al año".replace("$ ", ""),
+              delta_color="off", help=AYUDA["ahorro"])
 with c2:
-    st.metric("Máximo", cop(r_max["ahorro_mes"]) + " / mes",
-              f"{cop(r_max['ahorro_anual'])} al año".replace("$ ", ""), delta_color="off")
-    st.caption(f"{pct(r_max['ahorro_pct'])} de su factura  ·  "
-               f"{num(r_max['asignada'])} kWh/mes  ·  PDE {pct(pde_max, 3)}")
+    st.metric("De tu factura", pct(r["ahorro_pct"], 1),
+              help="Cuánto baja tu factura en porcentaje. Es el descuento por "
+                   "kWh multiplicado por la cobertura.")
 
-st.info(
-    f"**Esperado:** lo que le tocaría hoy, porque la planta se reparte entre todos los "
-    f"miembros — hoy la cobertura común es {pct(lam * sim.GENERACION_MENSUAL_KWH, 1)} "
-    f"del consumo de cada uno.  \n"
-    f"**Máximo:** su techo propio, el {pct(sim.TOPE_CONSUMO, 0)} de su consumo "
-    f"(o el {pct(sim.PDE_MAXIMO_LEGAL, 1)} legal si ese muerde primero). "
-    f"Solo lo alcanzaría si la comunidad tuviera energía de sobra.")
+st.progress(min(1.0, r["cobertura"]))
+st.caption(f"La comunidad pone el {pct(r['cobertura'], 1)} de tu energía. "
+           f"El resto sigue viniendo de la red.")
 
 
 # =========================================================
-# 2. DE DÓNDE SALE EL AHORRO
+# BLOQUE 3 — RANGO DE AHORROS
 # =========================================================
-st.subheader("De dónde sale el ahorro")
 
-c1, c2 = st.columns(2)
+st.divider()
+st.subheader("Tu rango de ahorro")
+st.caption("Depende de cuánta energía te alcance a entregar la comunidad. "
+           "El descuento por kWh es el mismo en los tres: lo que cambia es "
+           "la cobertura.")
 
-with c1:
+t1, t2, t3 = st.columns(3)
+
+ESCENARIOS = [
+    (t1, "Conservador", r_min, AYUDA["conservador"], False,
+     "El piso: la tajada más pequeña que tiene un miembro hoy."),
+    (t2, "Tu caso hoy", r, AYUDA["tucaso"], True,
+     "Lo que te tocaría si entraras este mes."),
+    (t3, "Óptimo", r_max, AYUDA["optimo"], False,
+     f"Tu techo: el {pct(sim.TOPE_CONSUMO, 0)} de tu consumo."),
+]
+
+for col, etiqueta, res, ayuda, destacada, pie in ESCENARIOS:
+    with col:
+        with st.container(border=True):
+            #  Solo la tarjeta del medio lleva distintivo: es la única con un
+            #  número real. Las otras dos son el marco.
+            st.markdown(
+                "<div class='etiqueta'>★ Tu escenario</div>" if destacada
+                else "<div class='etiqueta-gris'>&nbsp;</div>",
+                unsafe_allow_html=True)
+            st.metric(etiqueta, cop(res["ahorro_mes"]), help=ayuda)
+            st.caption(esc(f"al mes  ·  {millones(res['ahorro_anual'])} al año  ·  "
+                           f"{pct(res['ahorro_pct'], 1)} de tu factura"))
+            st.progress(min(1.0, res["cobertura"]))
+            st.caption(f"Cubrimos el {pct(res['cobertura'], 1)} de tu energía")
+            st.caption(f":gray[{pie}]")
+
+if piso_colapsa:
+    st.caption("Tu consumo es pequeño frente a la planta: ya estás en el piso, "
+               "así que el escenario conservador y el actual son el mismo.")
+if techo_colapsa:
+    st.caption("Ya estás en tu techo: no hay escenario mejor que este.")
+
+
+# =========================================================
+# BLOQUE 4 — DE DÓNDE SALE
+# =========================================================
+
+st.divider()
+st.subheader("¿De dónde sale el ahorro?")
+
+p1, p2, p3 = st.columns(3)
+with p1:
+    st.markdown("**⚡ Energía más barata**")
+    st.markdown("<div class='pilar'>Te vendemos el kWh por debajo de lo que te "
+                "cobra la red.</div>", unsafe_allow_html=True)
+with p2:
+    st.markdown("**🧾 Sin contribución**")
+    st.markdown("<div class='pilar'>Los kWh que te entregamos no pagan el 20 % "
+                "de contribución de solidaridad.</div>", unsafe_allow_html=True)
+with p3:
+    st.markdown("**📄 Tu factura de siempre**")
+    st.markdown("<div class='pilar'>El comercializador te descuenta la energía "
+                "que pusimos nosotros. No cambias de operador.</div>",
+                unsafe_allow_html=True)
+
+with st.container(border=True):
+    st.metric("En total, descuento sobre cada kWh que te entregamos",
+              pct(au["descuento_efectivo"], 1), help=AYUDA["descuento"])
+
+
+# =========================================================
+# BLOQUE 5 y 6 — CONFIANZA Y CIERRE
+# =========================================================
+
+st.divider()
+st.caption(f"{len(sim.USUARIOS_BASE)} miembros activos  ·  "
+           f"{num(sim.GENERACION_ANUAL_KWH)} kWh/año  ·  100 % solar  ·  "
+           f"Amparado por las Resoluciones CREG 174 de 2021 y 101 072 de 2025.")
+
+st.subheader("Empieza a ahorrar el próximo ciclo de facturación")
+st.button("Registrarme  →", type="primary", width='stretch')
+st.caption("Te pedimos una factura reciente. El trámite ante el comercializador "
+           "lo hacemos nosotros.")
+
+
+# =========================================================
+# BLOQUE 7 — EL DETALLE TÉCNICO
+# =========================================================
+
+with st.expander("Ver el detalle técnico"):
+
+    # ---------- Ahorro unitario ----------
     st.markdown("**Por cada kWh que entrega la comunidad**")
     st.dataframe(pd.DataFrame([
-        {"Concepto": "Lo que ese kWh le cuesta hoy en la red", "Valor": cop(au["costo_red"], 2)},
-        {"Concepto": "Ahorro por tarifa (CU − Cv − CU_CE)",    "Valor": cop(au["por_tarifa"], 2)},
-        {"Concepto": "Ahorro por contribución evitada",        "Valor": cop(au["por_contribucion"], 2)},
-        {"Concepto": "AHORRO POR kWh",                         "Valor": cop(au["total"], 2)},
-    ]), hide_index=True, use_container_width=True)
-    st.caption(f"Descuento efectivo sobre el costo real del kWh: **{pct(au['descuento_efectivo'])}**. "
-               f"No es lo mismo que el ahorro de la factura: la comunidad solo cubre "
-               f"{pct(r['cobertura'], 1)} de su consumo.")
+        {"Concepto": "Lo que ese kWh cuesta hoy en la red", "Valor": cop(au["costo_red"], 2)},
+        {"Concepto": "Ahorro por tarifa (CU − Cv − CU_CE)", "Valor": cop(au["por_tarifa"], 2)},
+        {"Concepto": "Ahorro por contribución evitada",     "Valor": cop(au["por_contribucion"], 2)},
+        {"Concepto": "AHORRO POR kWh",                      "Valor": cop(au["total"], 2)},
+    ]), hide_index=True, width='stretch')
+    st.caption(f"Descuento efectivo: **{pct(au['descuento_efectivo'])}**. "
+               f"El ahorro de la factura es menor porque la comunidad solo cubre "
+               f"{pct(r['cobertura'], 1)} del consumo: "
+               f"{pct(au['descuento_efectivo'], 1)} × {pct(r['cobertura'], 1)} = "
+               f"{pct(r['ahorro_pct'], 1)}.")
 
-with c2:
-    st.markdown("**Su factura, antes y después**")
+    # ---------- Las dos facturas ----------
+    st.markdown("**La factura, antes y después**")
     st.dataframe(pd.DataFrame([
         {"Concepto": f"SIN comunidad ({num(consumo)} kWh a la red)", "Valor": cop(r["factura_sin"])},
         {"Concepto": f"Energía de la red ({num(r['energia_red'])} kWh)", "Valor": cop(r["pago_red"])},
         {"Concepto": f"Cargo Cv sobre lo permutado ({num(r['exc1'])} kWh)", "Valor": cop(r["cargo_cv"])},
         {"Concepto": f"Pago a la comunidad ({num(r['asignada'])} kWh)", "Valor": cop(r["pago_ce"])},
         {"Concepto": "CON comunidad", "Valor": cop(r["factura_con"])},
-    ]), hide_index=True, use_container_width=True)
+    ]), hide_index=True, width='stretch')
     st.caption(esc(f"Del ahorro mensual, {cop(r['exc1'] * au['por_contribucion'])} viene de la "
-                   f"contribución evitada y {cop(r['exc1'] * au['por_tarifa'])} del diferencial tarifario."))
+                   f"contribución evitada y {cop(r['exc1'] * au['por_tarifa'])} del "
+                   f"diferencial tarifario."))
 
+    # ---------- Los tres escenarios en PDE ----------
+    st.markdown("**Los tres escenarios, en PDE**")
+    st.dataframe(pd.DataFrame([
+        {"Escenario": "Conservador", "PDE": pct(pde_min, 3),
+         "kWh/mes": num(r_min["asignada"]), "Cobertura": pct(r_min["cobertura"], 1),
+         "Ahorro/mes": cop(r_min["ahorro_mes"]), "% factura": pct(r_min["ahorro_pct"], 2)},
+        {"Escenario": "Tu caso hoy", "PDE": pct(pde_medio, 3),
+         "kWh/mes": num(r["asignada"]), "Cobertura": pct(r["cobertura"], 1),
+         "Ahorro/mes": cop(r["ahorro_mes"]), "% factura": pct(r["ahorro_pct"], 2)},
+        {"Escenario": "Óptimo", "PDE": pct(pde_max, 3),
+         "kWh/mes": num(r_max["asignada"]), "Cobertura": pct(r_max["cobertura"], 1),
+         "Ahorro/mes": cop(r_max["ahorro_mes"]), "% factura": pct(r_max["ahorro_pct"], 2)},
+    ]), hide_index=True, width='stretch')
+    st.caption(f"Conservador = min({pct(PDE_PISO_CONSERVADOR, 0)}, PDE del reparto). "
+               f"El tope evita que un PDE fijo supere el techo individual en "
+               f"consumos pequeños. Óptimo = min({pct(sim.PDE_MAXIMO_LEGAL, 1)} legal, "
+               f"{pct(sim.TOPE_CONSUMO, 0)} del consumo).")
 
-# =========================================================
-# 3. EL REPARTO DEL PDE
-# =========================================================
-st.subheader("Reparto del PDE en la comunidad")
+    # ---------- Reparto ----------
+    st.markdown("**Reparto del PDE en la comunidad**")
 
-ok, hallazgos = sim.validar_comunidad(pdes, len(pdes))
+    ok, hallazgos = sim.validar_comunidad(pdes, len(pdes))
+    if ok:
+        st.success(f"Reparto válido: los PDE suman {pct(sum(pdes), 4)} y ninguno "
+                   f"llega al 10 %.")
+    else:
+        st.error(" ".join(h[1] for h in hallazgos if h[0] == "ERROR"))
 
-if ok:
-    st.success(f"Reparto válido: los PDE suman {pct(sum(pdes), 4)} y ninguno llega al 10 %.")
-else:
-    st.error(" ".join(h[1] for h in hallazgos if h[0] == "ERROR"))
+    # El aviso de capacidad instalada no se muestra: es una tarea pendiente del
+    # modelo, no un hallazgo que le sirva a quien mira la pantalla.
+    for nivel, msg in hallazgos:
+        if nivel == "AVISO" and "CAPACIDAD_INSTALADA" not in msg:
+            st.warning(msg)
 
-for nivel, msg in hallazgos:
-    if nivel == "AVISO" and "CAPACIDAD_INSTALADA" in msg:
-        st.warning("Falta el dato de capacidad instalada de la planta: no se pudo verificar "
-                   "el límite de 1 MW ni el de 100 kW por usuario. El reparto sí está validado.")
-    elif nivel == "AVISO":
-        st.warning(msg)
-
-filas = []
-for u, p in zip(usuarios, pdes):
-    es_nuevo = u["pde_actual"] is None
-    filas.append({
+    st.dataframe(pd.DataFrame([{
         "Contrato":  u["contrato"],
         "Consumo":   num(u["promedio"]),
-        "PDE antes": "—" if es_nuevo else pct(u["pde_actual"], 3),
+        "PDE antes": "—" if u["pde_actual"] is None else pct(u["pde_actual"], 3),
         "PDE nuevo": pct(p, 3),
-        "Cambio":    "INGRESO" if es_nuevo else
+        "Cambio":    "INGRESO" if u["pde_actual"] is None else
                      ("+" if p > u["pde_actual"] else "") + pct(p - u["pde_actual"], 3),
         "kWh/mes":   num(sim.energia_asignada(p)),
         "Cobertura": pct(sim.energia_asignada(p) / u["promedio"], 1),
-    })
+    } for u, p in zip(usuarios, pdes)]), hide_index=True, width='stretch')
+    st.caption(f"Al entrar un usuario nuevo se recalculan todos los PDE. El reparto "
+               f"es proporcional al consumo: todos quedan con la misma cobertura "
+               f"({pct(lam * sim.GENERACION_MENSUAL_KWH, 2)}), salvo "
+               + (f"el {len(topados)} que choca" if len(topados) == 1
+                  else f"los {len(topados)} que chocan")
+               + " contra su techo.")
 
-st.dataframe(pd.DataFrame(filas), hide_index=True, use_container_width=True)
-st.caption(f"Al entrar un usuario nuevo se recalculan todos los PDE. El reparto es "
-           f"proporcional al consumo: todos quedan con la misma cobertura, salvo los "
-           f"{len(topados)} que chocan contra su techo.")
+    # ---------- Proyección ----------
+    st.markdown(f"**Proyección a {int(anios)} año(s)**")
+    proy = sim.proyectar(consumo, pde_medio, cu, cv, cu_ce, contrib, int(anios))
+    st.dataframe(pd.DataFrame([{
+        "Año":            p["anio"],
+        "CU red":         cop(p["cu"], 2),
+        "CU comunidad":   cop(p["cu_ce"], 2),
+        "Ahorro del año": cop(p["ahorro_anual"]),
+        "%":              pct(p["ahorro_pct"], 1),
+        "Acumulado":      cop(p["acumulado"]),
+    } for p in proy]), hide_index=True, width='stretch')
 
+    st.line_chart(pd.DataFrame({"Ahorro acumulado": [p["acumulado"] for p in proy]},
+                               index=[f"Año {p['anio']}" for p in proy]))
 
-# =========================================================
-# 4. PROYECCIÓN
-# =========================================================
-st.subheader(f"Proyección a {anios} año(s)")
+    st.caption(f"Supuestos: la tarifa de red sube {pct(sim.INFLACION_RED_ANUAL, 1)} "
+               f"al año y el precio de la comunidad {pct(sim.INFLACION_CE_ANUAL, 1)}. "
+               f"El PDE se mantiene. El acumulado son pesos corrientes.")
 
-proy = sim.proyectar(consumo, pde_nuevo, cu, cv, cu_ce, contrib, int(anios))
-
-st.dataframe(pd.DataFrame([{
-    "Año":            p["anio"],
-    "CU red":         cop(p["cu"], 2),
-    "CU comunidad":   cop(p["cu_ce"], 2),
-    "Ahorro del año": cop(p["ahorro_anual"]),
-    "%":              pct(p["ahorro_pct"], 1),
-    "Acumulado":      cop(p["acumulado"]),
-} for p in proy]), hide_index=True, use_container_width=True)
-
-st.line_chart(pd.DataFrame({"Ahorro acumulado": [p["acumulado"] for p in proy]},
-                           index=[f"Año {p['anio']}" for p in proy]))
-
-st.caption(f"Supuestos: la tarifa de red sube {pct(sim.INFLACION_RED_ANUAL, 1)} al año y el "
-           f"precio de la comunidad {pct(sim.INFLACION_CE_ANUAL, 1)}. El PDE se mantiene. "
-           f"El acumulado son pesos corrientes, sin traer a valor presente.")
+st.caption(":gray[Estimación basada en tu consumo promedio y en las tarifas "
+           "vigentes. El ahorro real depende del reparto de energía entre los "
+           "miembros de la comunidad y de la tarifa de tu comercializador. "
+           "No constituye una oferta vinculante.]")
