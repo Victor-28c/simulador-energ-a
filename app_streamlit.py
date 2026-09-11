@@ -322,12 +322,9 @@ t1, t2, t3 = st.columns(3)
 #  El detalle de cada escenario vive en el tooltip, no en la tarjeta. Abajo de
 #  cada número va una sola línea: cuándo pasa ese escenario.
 ESCENARIOS = [
-    (t1, "Mínimo", r_min, AYUDA["conservador"], False,
-     "Si la comunidad se llena de miembros."),
-    (t2, "Tu caso hoy", r, AYUDA["tucaso"], True,
-     "Con los miembros que hay hoy."),
-    (t3, "Máximo", r_max, AYUDA["optimo"], False,
-     "Si la comunidad tiene energía disponible para ti."),
+    (t1, "Mínimo", r_min, AYUDA["conservador"], False),
+    (t2, "Tu caso hoy", r, AYUDA["tucaso"], True),
+    (t3, "Máximo", r_max, AYUDA["optimo"], False),
 ]
 
 for col, etiqueta, res, ayuda, destacada, pie in ESCENARIOS:
