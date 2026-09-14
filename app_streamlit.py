@@ -1,25 +1,7 @@
 # =========================================================
 #  INTERFAZ CON STREAMLIT — SIMULADOR DE COMUNIDAD ENERGÉTICA
 # =========================================================
-#
-#  Cómo usarla:
-#      1. Instalar una sola vez:   pip install streamlit
-#      2. Dejar este archivo junto a simulador_ce.py
-#      3. Correr:                  streamlit run app_streamlit.py
-#
-#  IMPORTANTE: aquí NO se calcula nada. Toda la matemática vive en
-#  simulador_ce.py; este archivo solo pide los datos, llama a esas
-#  funciones y muestra el resultado.
-#
-#  La pantalla está partida en dos capas:
-#      ARRIBA  -> lo que ve una persona común. Un solo dato de entrada,
-#                 un número grande, tres escenarios. Cero jerga.
-#      ABAJO   -> "Ver el detalle técnico", colapsado. Ahí vive todo lo
-#                 que se necesita para sustentar el modelo.
-#
-#  Las explicaciones NO ocupan espacio: van en el signo de interrogación
-#  de cada elemento (el parámetro help=). Se leen pasando el mouse.
-# =========================================================
+
 
 import os
 import importlib.util
