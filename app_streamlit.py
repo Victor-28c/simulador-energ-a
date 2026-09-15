@@ -41,26 +41,14 @@ def millones(v):
 # =========================================================
 # LOS PLANES
 # =========================================================
-#  Un plan es una COBERTURA: qué parte del consumo del usuario pone
-#  WE Power. El PDE sale de ahí, no al revés — así el usuario compara en
-#  el idioma que entiende y los planes nunca se invierten entre sí.
+#  Un plan es una COBERTURA: qué parte del consumo del usuario pone WE Power.
+#  El PDE sale de ahí, no al revés — así el usuario compara en el idioma que
+#  entiende y los planes nunca se invierten entre sí.
 #
-#  Básico 30 %   equivale a un PDE del 3 % para un usuario de 15.000 kWh/mes,
-#                que es el tamaño típico de los miembros de hoy.
-#  Estándar 80 % es el TOPE_CONSUMO del modelo: el máximo estable por usuario.
-#  Premium 100 % solo es alcanzable por debajo de 14.850 kWh/mes; por encima
-#                de eso el tope legal del 9,9 % muerde antes y la cobertura
-#                real baja sola.
-
-PLAN_BASICO = 0.30
-PLAN_ESTANDAR = sim.TOPE_CONSUMO      # 0,80
-PLAN_PREMIUM = 1.00
-
-
-def pde_del_plan(cobertura_objetivo, consumo):
-    """Traduce 'quiero cubrir X % de mi consumo' a un PDE legal."""
-    return min(sim.PDE_MAXIMO_LEGAL,
-               cobertura_objetivo * consumo / sim.GENERACION_MENSUAL_KWH)
+#  Los tres planes y la fórmula del PDE viven en simulador_ce.py:
+#      sim.PLAN_BASICO / PLAN_ESTANDAR / PLAN_PREMIUM
+#      sim.pde_por_cobertura(cobertura, consumo)
+#  Esta interfaz no define ninguna regla de negocio: solo las usa.
 
 
 # =========================================================
@@ -95,15 +83,15 @@ AYUDA = {
         "acordado.",
 
     "basico":
-        "Ponemos alrededor de un tercio de tu energía."
-        "es el minimo posible",
+        "Ponemos alrededor de un tercio de tu energía. "
+        "Es el mínimo posible.",
 
     "estandar":
         "Es el 80 % de tu consumo.",
 
     "premium":
-        "Ponemos hasta el 100% de tu consumo (sujeto a la disponibilidad de la generación de la planta). "
-        "Límite de Reparto (PDE): Máximo de 9.9%",
+        "Ponemos hasta el 100 % de tu consumo (sujeto a la disponibilidad de "
+        "la generación de la planta). Límite de reparto (PDE): máximo 9,9 %.",
 
     "cu":
         "El valor por kWh de tu factura, antes de contribución.",
@@ -187,7 +175,7 @@ with st.sidebar:
 
     st.divider()
     st.caption(f"Planta: {num(sim.GENERACION_MENSUAL_KWH)} kWh/mes  ·  "
-               f"{len(sim.USUARIOS_BASE)} miembros actuales")
+               f"{sim.MIEMBROS_ACTUALES} miembros actuales")
 
 contrib = sim.CONTRIBUCION if contribuye else 0.0
 
@@ -235,9 +223,9 @@ if cu_ce >= umb["techo_absoluto"]:
 
 
 # --- Los tres planes, calculados ------------------------------------------
-pde_bas = pde_del_plan(PLAN_BASICO, consumo)
-pde_est = pde_del_plan(PLAN_ESTANDAR, consumo)
-pde_pre = pde_del_plan(PLAN_PREMIUM, consumo)
+pde_bas = sim.pde_por_cobertura(sim.PLAN_BASICO, consumo)
+pde_est = sim.pde_por_cobertura(sim.PLAN_ESTANDAR, consumo)
+pde_pre = sim.pde_por_cobertura(sim.PLAN_PREMIUM, consumo)
 
 r_bas = sim.balance_mensual(consumo, pde_bas, cu, cv, cu_ce, contrib)
 r_est = sim.balance_mensual(consumo, pde_est, cu, cv, cu_ce, contrib)
@@ -353,12 +341,12 @@ st.caption("Lo único que cambia entre los tres es cuánta de tu energía ponemo
 p1, p2, p3 = st.columns(3)
 
 PLANES = [
-    (p1, "Básico", r_bas, AYUDA["basico"], False, "Siempre disponible."),
-    (p2, "Estándar", r_est, AYUDA["estandar"], True, "El más pedido."),
-    (p3, "Premium", r_pre, AYUDA["premium"], False, "Cupo limitado."),
+    (p1, "Básico", r_bas, AYUDA["basico"], "Siempre disponible."),
+    (p2, "Estándar", r_est, AYUDA["estandar"], "El más pedido."),
+    (p3, "Premium", r_pre, AYUDA["premium"], "Cupo limitado."),
 ]
 
-for col, nombre, res, ayuda, destacado, pie in PLANES:
+for col, nombre, res, ayuda, pie in PLANES:
     with col:
         with st.container(border=True):
             st.metric(nombre, cop(res["ahorro_mes"]), help=ayuda)
@@ -371,25 +359,21 @@ for col, nombre, res, ayuda, destacado, pie in PLANES:
 st.info("**¿Te interesa el plan Premium?**  "
         "**Comunícate con nosotros** y lo revisamos contigo.")
 
-#  Avisos honestos cuando un plan no puede dar lo que promete. Ningún usuario
-#  puede recibir más de 14.850 kWh/mes (el 9,9 % de la generación), así que por
-#  encima de cierto consumo los planes se van igualando entre sí.
-TOPE_KWH = sim.PDE_MAXIMO_LEGAL * sim.GENERACION_MENSUAL_KWH
-
+#  Cuando el consumo es alto, los planes se van igualando entre sí porque hay
+#  un máximo de energía que se le puede asignar a una sola frontera. Se le
+#  explica al usuario SIN nombrar el tope ni la norma: lo único que necesita
+#  saber es por qué dos tarjetas le muestran el mismo número.
 if abs(pde_bas - pde_pre) < 1e-9:
-    st.warning(f"Tu consumo es tan alto frente a la planta que los tres planes "
-               f"te dan lo mismo: la ley no permite asignarle a un solo usuario "
-               f"más de {num(TOPE_KWH)} kWh al mes, que es el "
-               f"{pct(r_pre['cobertura'], 0)} de lo que consumes. "
-               f"**Comunícate con nosotros** para revisar tu caso.")
+    st.warning("Con tu consumo los tres planes te dan lo mismo: ya estarías "
+               "recibiendo el máximo que le podemos asignar a un solo usuario. "
+               "**Comunícate con nosotros** para revisar tu caso.")
 elif abs(pde_est - pde_pre) < 1e-9:
-    st.caption(f"Con tu consumo, los planes Estándar y Premium te dan lo mismo: "
-               f"ambos chocan con el tope legal de {num(TOPE_KWH)} kWh al mes "
-               f"por usuario.")
+    st.caption("Con tu consumo, el Estándar y el Premium te dan lo mismo: los "
+               "dos llegan al máximo que te podemos asignar.")
 elif r_pre["cobertura"] < 0.995:
-    st.caption(f"Con tu consumo el Premium no alcanza a cubrir el 100 %: el tope "
-               f"legal de {num(TOPE_KWH)} kWh al mes por usuario limita tu "
-               f"asignación al {pct(r_pre['cobertura'], 0)} de lo que consumes.")
+    st.caption(f"Con tu consumo, el Premium alcanza a cubrir el "
+               f"{pct(r_pre['cobertura'], 0)} de tu energía: es el máximo que "
+               f"le podemos asignar a un solo usuario.")
 
 
 # =========================================================
@@ -420,7 +404,7 @@ with q3:
 # =========================================================
 
 st.divider()
-st.caption(f"{len(sim.USUARIOS_BASE)} miembros activos  ·  "
+st.caption(f"{sim.MIEMBROS_ACTUALES} miembros activos  ·  "
            f"{num(sim.GENERACION_ANUAL_KWH)} kWh/año  ·  100 % solar  ·  "
            f"Amparado por las Resoluciones CREG 174 de 2021 y 101 072 de 2025.")
 
@@ -428,8 +412,6 @@ st.caption(f"{len(sim.USUARIOS_BASE)} miembros activos  ·  "
 # =========================================================
 # BLOQUE 8 — PROYECCIÓN
 # =========================================================
-#  Se quitaron la tabla de reparto por contrato y la tabla de escenarios en
-#  PDE: son asuntos de la comunidad, no del usuario que está decidiendo.
 
 with st.expander("Ver cómo crece tu ahorro con los años"):
 
