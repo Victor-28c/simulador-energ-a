@@ -368,9 +368,7 @@ for col, nombre, res, ayuda, destacado, pie in PLANES:
             st.caption(f"Ponemos el {pct(res['cobertura'], 0)} de tu energía")
             st.caption(f":gray[{pie}]")
 
-st.info("**¿Te interesa el plan Premium?** Ponemos todo tu consumo, pero el cupo "
-        "es limitado porque la planta se reparte entre todos los miembros, y "
-        "rinde solo si tu consumo es parejo mes a mes. "
+st.info("**¿Te interesa el plan Premium?**  "
         "**Comunícate con nosotros** y lo revisamos contigo.")
 
 #  Avisos honestos cuando un plan no puede dar lo que promete. Ningún usuario
