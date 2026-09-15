@@ -95,19 +95,15 @@ AYUDA = {
         "acordado.",
 
     "basico":
-        "El plan de entrada. Ponemos alrededor de un tercio de tu energía. Es "
-        "el que siempre hay disponible, por muchos miembros que haya.",
+        "Ponemos alrededor de un tercio de tu energía."
+        "es el minimo posible",
 
     "estandar":
-        "El máximo que le podemos asignar a un usuario de forma estable: el "
-        "80 % de tu consumo. Deja margen para los meses en que consumes menos "
-        "de lo normal.",
+        "Es el 80 % de tu consumo.",
 
     "premium":
-        "Ponemos todo tu consumo promedio. Rinde más solo si tu consumo es "
-        "parejo mes a mes: en un mes en que consumas bastante menos de tu "
-        "promedio, la energía de sobra no te genera ahorro y podrías terminar "
-        "ahorrando menos que con el Estándar. Por eso se acuerda caso por caso.",
+        "Ponemos hasta el 100% de tu consumo (sujeto a la disponibilidad de la generación de la planta). "
+        "Límite de Reparto (PDE): Máximo de 9.9%",
 
     "cu":
         "El valor por kWh de tu factura, antes de contribución.",
@@ -350,7 +346,7 @@ st.caption(f"Tu factura no baja ese mismo {pct(au['descuento_efectivo'], 0)} por
 # =========================================================
 
 st.divider()
-st.subheader("Elige tu plan")
+st.subheader("Ahorros posibles")
 st.caption("Lo único que cambia entre los tres es cuánta de tu energía ponemos "
            "nosotros. El descuento por kWh es el mismo en los tres.")
 
@@ -365,10 +361,6 @@ PLANES = [
 for col, nombre, res, ayuda, destacado, pie in PLANES:
     with col:
         with st.container(border=True):
-            st.markdown(
-                "<div class='etiqueta'>★ Recomendado</div>" if destacado
-                else "<div class='etiqueta-gris'>&nbsp;</div>",
-                unsafe_allow_html=True)
             st.metric(nombre, cop(res["ahorro_mes"]), help=ayuda)
             st.caption(esc(f"al mes  ·  {millones(res['ahorro_anual'])} al año  ·  "
                            f"{pct(res['ahorro_pct'], 1)} de tu factura"))
