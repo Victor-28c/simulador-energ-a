@@ -3,6 +3,7 @@
 # =========================================================
 
 import os
+import datetime
 import importlib.util
 import pandas as pd
 import streamlit as st
@@ -433,6 +434,65 @@ with st.expander("Ver cómo crece tu ahorro con los años"):
                                index=[f"Año {p['anio']}" for p in proy]))
 
     st.caption("El acumulado son pesos corrientes, sin traer a valor presente.")
+
+# =========================================================
+# BLOQUE 9 — DATOS PARA IMPRIMIR EL INFORME   [ BORRADOR ]
+# =========================================================
+#  ESTO ES UN ESQUELETO, NO ESTÁ TERMINADO.
+#
+#  Lo que falta decidir antes de darle forma:
+#    1. ¿Qué es "capacidad"? ¿La potencia contratada del usuario, la de su
+#       frontera, o la de la planta? Cambia de dónde sale el dato.
+#    2. ¿El informe se descarga (PDF/HTML) o se le envía a WE Power?
+#    3. ¿Qué campos son obligatorios? Hoy no se valida ninguno.
+#    4. Habeas data (Ley 1581 de 2012): recoger nombre, teléfono y dirección
+#       es tratamiento de datos personales. Antes de que esto salga a
+#       producción hace falta la autorización del titular, decir para qué se
+#       usan y quién es el responsable. El aviso de abajo es un marcador.
+#
+#  Por ahora el botón no genera nada: solo muestra cómo quedaría la cabecera
+#  del informe con lo que se escribió.
+
+st.divider()
+st.subheader("¿Quieres llevarte este cálculo?")
+st.caption("Completa tus datos y te generamos el informe de ahorro estimado.")
+
+with st.form("datos_informe"):
+    f1, f2 = st.columns(2)
+    with f1:
+        nombre = st.text_input("Nombre completo", placeholder="Rodolfo Pérez")
+        telefono = st.text_input("Teléfono", placeholder="300 123 4567")
+        ciudad = st.text_input("Ciudad", placeholder="Bogotá")
+    with f2:
+        direccion = st.text_input("Dirección", placeholder="Calle 123 # 45-67")
+        niu = st.text_input("NIU o número de contrato",
+                            placeholder="1075607",
+                            help="El número que identifica tu frontera "
+                                 "comercial. Aparece en tu factura.")
+        fecha = st.date_input("Fecha del informe", value=datetime.date.today())
+
+    st.caption("Al continuar autorizas a WE Power a usar estos datos para "
+               "contactarte sobre esta cotización.  *(texto provisional: "
+               "falta redactar la autorización de tratamiento de datos)*")
+
+    generar = st.form_submit_button("Generar informe", type="primary")
+
+if generar:
+    st.success("Así quedaría la cabecera del informe:")
+    st.dataframe(pd.DataFrame([
+        {"Campo": "Nombre",            "Dato": nombre or "—"},
+        {"Campo": "Teléfono",          "Dato": telefono or "—"},
+        {"Campo": "Dirección",         "Dato": direccion or "—"},
+        {"Campo": "Ciudad",            "Dato": ciudad or "—"},
+        {"Campo": "NIU / contrato",    "Dato": niu or "—"},
+        {"Campo": "Fecha",             "Dato": fecha.strftime("%d/%m/%Y")},
+        {"Campo": "Consumo promedio",  "Dato": f"{num(consumo)} kWh/mes"},
+        {"Campo": "Plan",              "Dato": "Estándar"},
+        {"Campo": "Ahorro estimado",   "Dato": f"{cop(r['ahorro_mes'])} al mes"},
+    ]), hide_index=True, width='stretch')
+    st.info("El informe descargable todavía no está hecho. Esto es solo la "
+            "recolección de datos.")
+
 
 st.caption(":gray[Estimación basada en tu consumo promedio y en las tarifas "
            "vigentes. El ahorro real depende de tu consumo mes a mes y de la "
