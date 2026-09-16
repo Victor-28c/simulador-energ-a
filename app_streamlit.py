@@ -77,6 +77,12 @@ def millones(v):
 #  Esta interfaz no define ninguna regla de negocio: solo las usa.
 
 
+# --- Opciones de descuento que se ofrecen ---------------------------------
+#  "Otro" queda para un descuento pactado por fuera de estos valores: sin él,
+#  un 7 % negociado obligaría a tocar el código.
+DESCUENTOS = ("0 %", "5 %", "10 %", "15 %", "Otro")
+
+
 # --- Asesor comercial por defecto -----------------------------------------
 ASESOR_NOMBRE = "Ricardo Orozco"
 ASESOR_TEL = "3017877074"
@@ -136,9 +142,10 @@ AYUDA = {
         "CIIU (Ley 1430/2010, art. 2).",
 
     "descuento_cu":
-        "El descuento comercial que se le da al cliente sobre su costo unitario "
-        "de energía. Es lo que se negocia. El precio por kWh sale de aquí, con "
-        "la misma fórmula del modelo financiero: CU × (1 − descuento) − Cv.",
+        "Sirve para calcular el valor del kWh que entrega la comunidad. Se le "
+        "aplica este descuento al CU asignado y se le resta el Cv, porque ese "
+        "cargo se lo cobra aparte el comercializador: "
+        "CU × (1 − descuento) − Cv. Es la misma fórmula del modelo financiero.",
 
     "anios":
         "Para la proyección. Se asume que la tarifa de red sube más rápido que "
@@ -198,15 +205,33 @@ with st.sidebar:
     contribuye = st.checkbox("Paga contribución del 20 %", value=True,
                              help=AYUDA["contribuye"])
 
-    #  Se pide el DESCUENTO, no el precio: es el dato que se negocia con el
-    #  cliente. El precio sale de ahí, con la fórmula del Excel.
-    descuento = st.number_input("Descuento sobre el CU (%)",
-                                min_value=0.0, max_value=60.0,
-                                value=sim.DESCUENTO_SOBRE_CU * 100, step=0.5,
-                                help=AYUDA["descuento_cu"]) / 100.0
+    #  Se escoge el DESCUENTO, no el precio: es el dato que se negocia. El
+    #  precio sale de ahí y se muestra abajo, en una casilla bloqueada para
+    #  que se vea que es un resultado y no algo que se escribe.
+    opcion = st.segmented_control(
+        "Descuento sobre CU asignado", DESCUENTOS,
+        default=f"{sim.DESCUENTO_SOBRE_CU * 100:.0f} %",
+        help=AYUDA["descuento_cu"])
+
+    if opcion is None:                     # si se deselecciona, vuelve al de casa
+        opcion = f"{sim.DESCUENTO_SOBRE_CU * 100:.0f} %"
+
+    if opcion == "Otro":
+        descuento = st.number_input("¿Cuánto?  (%)", min_value=0.0, max_value=60.0,
+                                    value=sim.DESCUENTO_SOBRE_CU * 100, step=0.5,
+                                    help="Para descuentos pactados fuera de los "
+                                         "valores de siempre.") / 100.0
+    else:
+        descuento = float(opcion.replace(" %", "")) / 100.0
+
     cu_ce = sim.precio_por_descuento(cu, cv, descuento)
-    st.caption(esc(f"Precio que resulta: **{cop(cu_ce, 2)}** por kWh  \n"
-                   f"{cop(cu, 2)} × {num(1 - descuento, 2)} − {cop(cv, 2)}"))
+
+    st.text_input("Valor del kWh de la comunidad (COP/kWh)",
+                  value=cop(cu_ce, 2), disabled=True,
+                  help="No se escribe: sale solo del descuento que escogiste "
+                       "arriba y de los valores de CU y Cv.")
+    st.caption(esc(f"{cop(cu, 2)} × {num(1 - descuento, 2)} − {cop(cv, 2)} = "
+                   f"{cop(cu_ce, 2)}"))
 
     anios = st.number_input("Período de proyección (años)",
                             min_value=1, max_value=25, value=5, step=1,
