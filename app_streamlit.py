@@ -8,14 +8,35 @@ import importlib.util
 import pandas as pd
 import streamlit as st
 
-import informe_pdf
-
 # --- Cargar el modelo desde la carpeta de este archivo ---------------------
 AQUI = os.path.dirname(os.path.abspath(__file__))
 _spec = importlib.util.spec_from_file_location(
     "simulador_ce", os.path.join(AQUI, "simulador_ce.py"))
 sim = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(sim)
+
+
+def _cargar(nombre):
+    """Carga un módulo vecino por ruta, sin depender de sys.path.
+
+    Un `import informe_pdf` a secas falla en algunos despliegues porque la
+    carpeta del script no siempre queda en la ruta de búsqueda de Python.
+    Aquí se carga por ruta absoluta, igual que el modelo. Si el archivo no
+    está, devuelve None y la página sigue funcionando sin el informe.
+    """
+    ruta = os.path.join(AQUI, nombre + ".py")
+    if not os.path.exists(ruta):
+        return None
+    try:
+        e = importlib.util.spec_from_file_location(nombre, ruta)
+        m = importlib.util.module_from_spec(e)
+        e.loader.exec_module(m)
+        return m
+    except Exception:
+        return None
+
+
+informe_pdf = _cargar("informe_pdf")
 
 
 # --- Formato colombiano ----------------------------------------------------
@@ -468,6 +489,13 @@ with st.expander("Ver cómo crece tu ahorro con los años"):
 #  del informe con lo que se escribió.
 
 st.divider()
+
+if informe_pdf is None:
+    st.warning("Para generar el informe en PDF falta el archivo **informe_pdf.py** "
+               "en la misma carpeta que esta app. El resto del simulador funciona "
+               "normalmente.")
+    st.stop()
+
 st.subheader("¿Quieres llevarte este cálculo?")
 st.caption("Completa los datos y te generamos el informe en PDF, con tus números "
            "y la información de WE Power.")
