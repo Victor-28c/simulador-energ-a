@@ -1,2 +1,2 @@
 pandas
-packages.txt
+packages
