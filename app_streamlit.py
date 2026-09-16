@@ -104,25 +104,23 @@ AYUDA = {
         "contribución del 20 % incluida.",
 
     "despues":
-        "Tu nueva factura: lo que le sigues comprando a la red, más el cargo "
-        "del comercializador por la energía permutada, más lo que le pagas a "
-        "WE Power.",
+        "Tu nueva factura: lo que tu comercializador te sigue cobrando por la "
+        "energía, más lo que le pagas a WE Power por la parte que cubrimos.",
 
     "kwh":
-        "El kWh de la red te cuesta el precio de la energía más el 20 % de "
-        "contribución. El que pone WE Power no paga contribución y se te vende "
-        "más barato: solo pagas el cargo del comercializador y el precio "
-        "acordado.",
+        "Toda tu energía sigue llegando por la red. Lo que cambia es el precio: "
+        "los kWh que cubrimos salen de tu consumo facturado, así que no pagan "
+        "contribución, y sobre ellos solo pagas el cargo del comercializador "
+        "más el precio acordado con WE Power.",
 
     "basico":
-        "Ponemos alrededor de un tercio de tu energía. "
-        "Es el mínimo posible.",
+        "Cubrimos alrededor de un tercio de tu consumo. Es el mínimo posible.",
 
     "estandar":
         "Es el 80 % de tu consumo.",
 
     "premium":
-        "Ponemos hasta el 100 % de tu consumo, sujeto a la energía disponible "
+        "Cubrimos hasta el 100 % de tu consumo, sujeto a la energía disponible "
         "en la planta. Se cotiza caso por caso porque depende de tu curva de "
         "consumo mes a mes, no solo de tu promedio.",
 
@@ -137,8 +135,10 @@ AYUDA = {
         "Sí: estratos 5 y 6 y comerciales. No: industriales exentos por código "
         "CIIU (Ley 1430/2010, art. 2).",
 
-    "cu_ce":
-        "El precio al que WE Power te vende el kWh. Es lo que se negocia.",
+    "descuento_cu":
+        "El descuento comercial que se le da al cliente sobre su costo unitario "
+        "de energía. Es lo que se negocia. El precio por kWh sale de aquí, con "
+        "la misma fórmula del modelo financiero: CU × (1 − descuento) − Cv.",
 
     "anios":
         "Para la proyección. Se asume que la tarifa de red sube más rápido que "
@@ -198,9 +198,15 @@ with st.sidebar:
     contribuye = st.checkbox("Paga contribución del 20 %", value=True,
                              help=AYUDA["contribuye"])
 
-    cu_ce = st.number_input("Precio acordado con WE Power (COP/kWh)",
-                            min_value=1.0, value=693.5, step=1.0,
-                            help=AYUDA["cu_ce"])
+    #  Se pide el DESCUENTO, no el precio: es el dato que se negocia con el
+    #  cliente. El precio sale de ahí, con la fórmula del Excel.
+    descuento = st.number_input("Descuento sobre el CU (%)",
+                                min_value=0.0, max_value=60.0,
+                                value=sim.DESCUENTO_SOBRE_CU * 100, step=0.5,
+                                help=AYUDA["descuento_cu"]) / 100.0
+    cu_ce = sim.precio_por_descuento(cu, cv, descuento)
+    st.caption(esc(f"Precio que resulta: **{cop(cu_ce, 2)}** por kWh  \n"
+                   f"{cop(cu, 2)} × {num(1 - descuento, 2)} − {cop(cv, 2)}"))
 
     anios = st.number_input("Período de proyección (años)",
                             min_value=1, max_value=25, value=5, step=1,
@@ -293,10 +299,11 @@ with c2:
 
 st.progress(min(1.0, r["cobertura"]))
 st.markdown(
-    f"<div class='nota'>Con el <b>plan Estándar</b>: ponemos el "
-    f"<b>{pct(r['cobertura'], 0)}</b> de tu energía, con un "
+    f"<div class='nota'>Con el <b>plan Estándar</b> cubrimos el "
+    f"<b>{pct(r['cobertura'], 0)}</b> de tu consumo, con un "
     f"<abbr title=\"{AYUDA['pde']}\">PDE</abbr> del <b>{pct(pde_actual, 2)}</b> "
-    f"de nuestra generación. El resto sigue viniendo de la red.</div>",
+    f"de nuestra generación. El resto lo sigues pagando a tu comercializador "
+    f"al precio de siempre.</div>",
     unsafe_allow_html=True)
 
 st.info(f"**Es un estimado.** Está calculado con un consumo promedio de "
@@ -322,19 +329,27 @@ with a2:
     st.metric("Ahora pagas", cop(r["factura_con"]),
               "-" + cop(r["ahorro_mes"]).replace("$ ", ""),
               delta_color="inverse", help=AYUDA["despues"])
-    st.caption(f"Nosotros ponemos {num(r['asignada'])} kWh; el resto se lo "
-               f"sigues comprando a la red.")
+    st.caption(f"{num(r['asignada'])} kWh se te descuentan de la factura; el "
+               f"resto lo pagas al precio de siempre.")
 
 st.markdown("**¿De qué se compone la nueva factura?**")
+#  Los dos primeros renglones iban al MISMO destinatario —el comercializador—
+#  y verlos separados confundía. Se juntan en uno solo: el usuario recibe dos
+#  cobros, de dos empresas distintas. Así de simple.
+pago_comercializador = r["pago_red"] + r["cargo_cv"]
+
 st.dataframe(pd.DataFrame([
-    {"Concepto": f"Energía que le sigues comprando a la red ({num(r['energia_red'])} kWh)",
-     "Valor": cop(r["pago_red"])},
-    {"Concepto": f"Cargo del comercializador por la energía que pusimos ({num(r['exc1'])} kWh)",
-     "Valor": cop(r["cargo_cv"])},
-    {"Concepto": f"Lo que le pagas a WE Power ({num(r['asignada'])} kWh)",
+    {"Concepto": "Lo que le sigues pagando a tu comercializador",
+     "Valor": cop(pago_comercializador)},
+    {"Concepto": "Lo que le pagas a WE Power",
      "Valor": cop(r["pago_ce"])},
     {"Concepto": "TOTAL DE TU NUEVA FACTURA", "Valor": cop(r["factura_con"])},
 ]), hide_index=True, width='stretch')
+
+st.caption(f"Tu comercializador te sigue facturando toda la energía. Ese cobro "
+           f"junta dos cosas: los {num(r['energia_red'])} kWh que no alcanzamos a "
+           f"cubrir, al precio de siempre, y el cargo que te hace por los "
+           f"{num(r['exc1'])} kWh que sí cubrimos.")
 
 st.caption(esc(f"Antes: {cop(r['factura_sin'])}.  Ahora: {cop(r['factura_con'])}.  "
                f"Te quedan {cop(r['ahorro_mes'])} en el bolsillo cada mes, "
@@ -346,7 +361,7 @@ st.caption(esc(f"Antes: {cop(r['factura_sin'])}.  Ahora: {cop(r['factura_con'])}
 # =========================================================
 
 st.divider()
-st.subheader("Por cada kWh que te entregamos")
+st.subheader("Por cada kWh que te cubrimos")
 
 k1, k2, k3 = st.columns(3)
 with k1:
@@ -358,10 +373,10 @@ with k2:
 with k3:
     st.metric("Te ahorras", cop(au["total"], 2),
               pct(au["descuento_efectivo"], 1) + " menos", delta_color="off")
-    st.caption("En cada kWh que ponemos nosotros.")
+    st.caption("En cada kWh que alcanzamos a cubrir.")
 
 st.caption(f"Tu factura no baja ese mismo {pct(au['descuento_efectivo'], 0)} porque "
-           f"el descuento aplica solo a los kWh que ponemos nosotros, que son el "
+           f"el descuento aplica solo a los kWh que cubrimos, que son el "
            f"{pct(r['cobertura'], 0)} de tu consumo: "
            f"{pct(au['descuento_efectivo'], 0)} × {pct(r['cobertura'], 0)} = "
            f"{pct(r['ahorro_pct'], 1)} de tu factura.")
@@ -373,8 +388,8 @@ st.caption(f"Tu factura no baja ese mismo {pct(au['descuento_efectivo'], 0)} por
 
 st.divider()
 st.subheader("Ahorros posibles")
-st.caption("Lo único que cambia entre los tres es cuánta de tu energía ponemos "
-           "nosotros. El descuento por kWh es el mismo en los tres.")
+st.caption("Lo único que cambia entre los tres es qué parte de tu consumo "
+           "cubrimos. El descuento por kWh es el mismo en los tres.")
 
 p1, p2, p3 = st.columns(3)
 
@@ -390,13 +405,13 @@ for col, nombre, res, ayuda, pie in PLANES:
             st.caption(esc(f"al mes  ·  {millones(res['ahorro_anual'])} al año  ·  "
                            f"{pct(res['ahorro_pct'], 1)} de tu factura"))
             st.progress(min(1.0, res["cobertura"]))
-            st.caption(f"Ponemos el {pct(res['cobertura'], 0)} de tu energía")
+            st.caption(f"Cubrimos el {pct(res['cobertura'], 0)} de tu consumo")
             st.caption(f":gray[{pie}]")
 
 with p3:
     with st.container(border=True):
         st.metric("Premium", "A tu medida", help=AYUDA["premium"])
-        st.caption("Ponemos hasta el 100 % de tu energía.")
+        st.caption("Cubrimos hasta el 100 % de tu consumo.")
         st.progress(1.0)
         st.caption("Se cotiza contigo")
         st.caption(":gray[Cupo limitado.]")
@@ -423,12 +438,13 @@ st.subheader("¿De dónde sale el ahorro?")
 q1, q2, q3 = st.columns(3)
 with q1:
     st.markdown("**⚡ Energía más barata**")
-    st.markdown("<div class='pilar'>Te vendemos el kWh por debajo de lo que te "
-                "cobra la red.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='pilar'>El kWh que cubrimos te sale más barato que "
+                "el que te cobra tu comercializador.</div>", unsafe_allow_html=True)
 with q2:
     st.markdown("**🧾 Sin contribución**")
-    st.markdown("<div class='pilar'>Los kWh que te entregamos no pagan el 20 % "
-                "de contribución de solidaridad.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='pilar'>Los kWh que cubrimos salen de tu consumo "
+                "facturado, así que no pagan el 20 % de contribución.</div>",
+                unsafe_allow_html=True)
 with q3:
     st.markdown("**📄 Tu factura de siempre**")
     st.markdown("<div class='pilar'>El comercializador te descuenta la energía "
