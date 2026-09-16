@@ -559,20 +559,46 @@ if generar:
              "asesor_nombre": asesor_nombre, "asesor_tel": asesor_tel,
              "asesor_mail": asesor_mail},
             sim, r, au, proy, consumo, cu, cv, cu_ce)
+        base = "Informe WE Club - " + (nombre.strip() or "cliente")
+        #  El HTML siempre se puede generar: es texto, no depende de nada.
+        st.session_state["html"] = informe_pdf.construir_html(datos).encode("utf-8")
+        st.session_state["html_nombre"] = base + ".html"
+        st.session_state["archivo_nombre"] = base + ".pdf"
         try:
             st.session_state["pdf"] = informe_pdf.generar_pdf(datos)
-            st.session_state["pdf_nombre"] = (
-                "Informe WE Club - " + (nombre.strip() or "cliente") + ".pdf")
-        except ImportError:
+            st.session_state.pop("pdf_error", None)
+        except Exception as err:
+            #  No se traga el error: WeasyPrint puede fallar por no estar
+            #  instalado O por faltarle librerías del sistema, y son cosas
+            #  distintas. Sin ver el mensaje real no se sabe cuál es.
+            import traceback
             st.session_state.pop("pdf", None)
-            st.error("Falta WeasyPrint. Revisa que el repositorio tenga el "
-                     "archivo packages.txt con las librerías del sistema.")
+            st.session_state["pdf_error"] = traceback.format_exc()
 
 if st.session_state.get("pdf"):
     st.success("Informe listo.")
     st.download_button("Descargar informe en PDF", st.session_state["pdf"],
-                       file_name=st.session_state["pdf_nombre"],
+                       file_name=st.session_state["archivo_nombre"],
                        mime="application/pdf", type="primary")
+
+elif st.session_state.get("html"):
+    #  Plan B: el mismo informe, en HTML. Se abre en el navegador y desde ahí
+    #  se imprime a PDF (Ctrl+P). Sale idéntico porque es la misma plantilla.
+    st.success("Informe listo.")
+    st.download_button("Descargar informe", st.session_state["html"],
+                       file_name=st.session_state["html_nombre"],
+                       mime="text/html", type="primary")
+    st.caption("Se descarga en HTML. Ábrelo con doble clic y usa **Imprimir → "
+               "Guardar como PDF** para tenerlo en PDF. Sale igual: es la misma "
+               "plantilla.")
+    with st.expander("¿Por qué no salió directo en PDF?"):
+        st.write("La librería que convierte a PDF (WeasyPrint) no está "
+                 "disponible en este despliegue. Revisa que el repositorio "
+                 "tenga `weasyprint` dentro de **requirements.txt** y el "
+                 "archivo **packages.txt** con las librerías del sistema; "
+                 "después entra a *Manage app* y dale **Reboot**.")
+        st.write("**Error exacto:**")
+        st.code(st.session_state.get("pdf_error", "(sin detalle)"))
 
 st.caption(":gray[Estimación basada en tu consumo promedio y en las tarifas "
            "vigentes. El ahorro real depende de tu consumo mes a mes y de la "
