@@ -230,8 +230,6 @@ with st.sidebar:
                   value=cop(cu_ce, 2), disabled=True,
                   help="Resulta del descuento seleccionado y de los valores "
                        "de CU y Cv.")
-    st.caption(esc(f"{cop(cu, 2)} × {num(1 - descuento, 2)} − {cop(cv, 2)} = "
-                   f"{cop(cu_ce, 2)}"))
 
     anios = st.number_input("Período de proyección (años)",
                             min_value=1, max_value=25, value=5, step=1,
