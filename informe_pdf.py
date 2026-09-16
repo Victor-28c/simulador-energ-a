@@ -267,21 +267,22 @@ def construir_html(d):
             en su factura de energía</span></p>
       </div>
       <div class="caja-borde" style="margin-top:4mm">
-        <h3 style="margin-top:0">Energía que le entregamos</h3>
-        <p style="margin:0"><b>{num(d['asignada'])} kWh al mes</b> desde nuestras granjas solares</p>
+        <h3 style="margin-top:0">Energía que le cubrimos</h3>
+        <p style="margin:0"><b>{num(d['asignada'])} kWh al mes</b> generados en nuestras granjas solares</p>
         <div class="barra"><div style="width:{min(100, d['cobertura']*100):.0f}%"></div></div>
-        <p class="chico gris" style="margin:0">Cubre el <b>{pct(d['cobertura'],0)}</b> de su consumo.
-          El resto lo sigue comprando a su operador de siempre.</p>
+        <p class="chico gris" style="margin:0">Equivale al <b>{pct(d['cobertura'],0)}</b> de su
+          consumo. Su energía sigue llegando por la red de siempre: lo que cambia es
+          el precio de esa parte.</p>
       </div>
     </div>
   </div>
 
   <div class="caja" style="margin-top:5mm">
     <h3 style="margin-top:0">Cómo se calcula</h3>
-    <p style="margin:0">Le entregamos {num(d['asignada'])} kWh al mes a un costo de
+    <p style="margin:0">Cubrimos {num(d['asignada'])} kWh al mes a un costo de
     <b>{cop(d['costo_ce_kwh'],2)}</b> por kWh, frente a los <b>{cop(d['costo_red_kwh'],2)}</b>
     que le cuesta hoy cada kWh de la red con contribución incluida.
-    Son <b>{cop(d['ahorro_kwh'],2)}</b> menos por cada kWh: un
+    Son <b>{cop(d['ahorro_kwh'],2)}</b> menos por cada kWh cubierto: un
     <b>{pct(d['descuento'],0)}</b> de descuento.</p>
   </div>
 
@@ -311,17 +312,19 @@ def construir_html(d):
   <h3 style="margin-top:6mm">De qué se compone su nueva factura</h3>
   <table>
     <tr><th>Concepto</th><th style="text-align:right">Valor</th></tr>
-    <tr><td>Energía que le sigue comprando a la red ({num(d['energia_red'])} kWh)</td>
-        <td class="n">{cop(d['pago_red'])}</td></tr>
-    <tr><td>Cargo del comercializador por la energía que pusimos ({num(d['exc1'])} kWh)</td>
-        <td class="n">{cop(d['cargo_cv'])}</td></tr>
-    <tr><td>Lo que le paga a WE Power ({num(d['asignada'])} kWh)</td>
+    <tr><td>Lo que le sigue pagando a su comercializador</td>
+        <td class="n">{cop(d['pago_comercializador'])}</td></tr>
+    <tr><td>Lo que le paga a WE Power</td>
         <td class="n">{cop(d['pago_ce'])}</td></tr>
     <tr class="total"><td>TOTAL DE SU NUEVA FACTURA</td>
         <td class="n">{cop(d['factura_con'])}</td></tr>
   </table>
+  <p class="nota" style="margin-top:2mm">Su comercializador le sigue facturando toda
+  la energía. Ese cobro junta dos cosas: los {num(d['energia_red'])} kWh que no
+  alcanzamos a cubrir, al precio de siempre, y el cargo que le hace por los
+  {num(d['exc1'])} kWh que sí cubrimos.</p>
 
-  <h3 style="margin-top:6mm">Por cada kWh que le entregamos</h3>
+  <h3 style="margin-top:6mm">Por cada kWh que le cubrimos</h3>
   <div class="cols">
     <div class="col caja" style="text-align:center">
       <div class="chico gris">ESE kWh EN LA RED</div>
@@ -395,7 +398,7 @@ def construir_html(d):
       <h3 style="margin-top:0">Lo que sí cambia</h3>
       <ul>
         <li>Su medidor se reemplaza por un medidor inteligente, sin costo para usted.</li>
-        <li>Parte de su energía viene de una granja solar.</li>
+        <li>Parte de la energía que consume la genera una granja solar y se le acredita en su factura.</li>
         <li>Paga menos por esa energía: un descuento sobre el costo unitario que paga hoy.</li>
         <li>Recibe reportes de su consumo y de su ahorro.</li>
       </ul>
@@ -463,7 +466,7 @@ def construir_html(d):
         <td>Su ahorro baja en proporción. El plan se revisa en el acuerdo.</td>
         <td>Compartido</td></tr>
     <tr><td><b>Si no logramos vincularlo</b></td>
-        <td>Si en seis meses no se crea la comunidad, la afiliación termina y usted no paga nada.</td>
+        <td>Si en doce meses no se crea la comunidad, la afiliación termina y usted no paga nada.</td>
         <td>WE POWER</td></tr>
     <tr><td><b>Cambia la regulación aplicable</b></td>
         <td>La estructura se ajusta o se termina sin penalidad para usted.</td>
@@ -565,6 +568,7 @@ def armar_datos(form, sim, r, au, proyeccion, consumo, cu, cv, cu_ce):
         "energia_red": r["energia_red"], "cobertura": r["cobertura"],
         "factura_sin": r["factura_sin"], "factura_con": r["factura_con"],
         "pago_red": r["pago_red"], "cargo_cv": r["cargo_cv"], "pago_ce": r["pago_ce"],
+        "pago_comercializador": r["pago_red"] + r["cargo_cv"],
         "ahorro_mes": r["ahorro_mes"], "ahorro_anual": r["ahorro_anual"],
         "ahorro_pct": r["ahorro_pct"],
         "costo_red_kwh": au["costo_red"], "costo_ce_kwh": cv + cu_ce,
