@@ -78,16 +78,27 @@ p  {{ margin: 0 0 2.5mm 0; }}
 .chico {{ font-size: 8pt; }}
 
 /* --- Portada --- */
-.portada {{ background: {AZUL}; color: #fff; width: 210mm; height: 297mm;
-            padding: 22mm 20mm;
+.portada {{ width: 210mm; height: 297mm; display: flex;
             page-break-after: always; }}
-.portada h1 {{ color: #fff; font-size: 34pt; margin: 0; letter-spacing: -.5pt; }}
-.portada .club {{ color: {NARANJA}; font-size: 40pt; font-weight: bold; margin: 2mm 0 0 0; }}
-.portada .lema {{ font-size: 13pt; margin-top: 4mm; opacity: .92; }}
-.portada .linea {{ width: 60mm; height: 2px; background: {NARANJA}; margin: 8mm 0; }}
-.portada .saludo {{ font-size: 26pt; font-weight: bold; margin-top: 18mm; }}
-.portada img {{ width: 26mm; margin-bottom: 10mm; }}
-.portada .pie {{ position: absolute; bottom: 22mm; font-size: 10pt; opacity: .9; }}
+.pt-izq {{ width: 78mm; background: {AZUL}; color: #fff; padding: 20mm 12mm; }}
+.pt-izq img {{ width: 24mm; margin-bottom: 14mm; }}
+.pt-izq .marca {{ font-size: 19pt; font-weight: bold; letter-spacing: -.3pt; }}
+.pt-izq .club {{ color: {NARANJA}; font-size: 30pt; font-weight: bold;
+                 margin: 1mm 0 0 0; line-height: 1; }}
+.pt-izq .linea {{ width: 34mm; height: 2px; background: {NARANJA}; margin: 7mm 0; }}
+.pt-izq .lema {{ font-size: 11pt; line-height: 1.5; opacity: .93; }}
+.pt-izq .web {{ position: absolute; bottom: 20mm; font-size: 9pt; opacity: .8; }}
+.pt-der {{ flex: 1; padding: 20mm 16mm; }}
+.pt-der .saludo {{ font-size: 27pt; font-weight: bold; color: {AZUL};
+                   margin: 0 0 6mm 0; line-height: 1.1; }}
+.pt-der p {{ font-size: 10pt; line-height: 1.55; margin-bottom: 3.5mm; }}
+.pt-der .cierre {{ color: {AZUL}; font-weight: bold; }}
+.cifras {{ display: flex; gap: 3mm; margin: 6mm 0; }}
+.cifra-caja {{ flex: 1; background: {GRIS_CLARO}; border-radius: 2mm;
+               padding: 3mm; text-align: center; }}
+.cifra-caja b {{ display: block; color: {AZUL}; font-size: 13pt; }}
+.cifra-caja span {{ font-size: 7.5pt; color: {GRIS}; }}
+.asesor-portada {{ border-top: 2px solid {NARANJA}; padding-top: 4mm; margin-top: 6mm; }}
 
 /* --- Encabezado de páginas interiores --- */
 .cab {{ border-bottom: 2px solid {NARANJA}; padding-bottom: 2mm; margin-bottom: 5mm;
@@ -137,7 +148,7 @@ li {{ margin-bottom: 1.5mm; }}
         width: 210mm; min-height: 297mm; margin: 0 auto 8mm auto;
         background: #fff; box-shadow: 0 1mm 4mm rgba(0,0,0,.35);
         padding: 16mm 14mm; }}
-    .portada {{ background: {AZUL}; padding: 22mm 20mm; }}
+    .portada {{ padding: 0; }}
     .aviso-print {{
         max-width: 210mm; margin: 0 auto 6mm auto; padding: 4mm 6mm;
         background: #FFF7E3; border-left: 4px solid {NARANJA};
@@ -181,20 +192,47 @@ def construir_html(d):
 
 <!-- ============ 1. PORTADA ============ -->
 <div class="portada">
-  {logo_img}
-  <h1>WE POWER</h1>
-  <div class="club">WE CLUB</div>
-  <div class="lema">Comunidades energéticas de WE Power<br>
-    Energía limpia, a menor costo y sin invertir en equipos.</div>
-  <div class="linea"></div>
-  <div class="saludo">Hola, {d['nombre']}</div>
-  <p style="font-size:11pt; margin-top:4mm; opacity:.92; max-width:120mm">
-    Este es el ahorro estimado para su empresa si se afilia a We Club.
-    Está calculado con su propio consumo y con las tarifas que paga hoy.</p>
-  <div class="pie">
-    {d['ciudad']} · {d['fecha']}<br>
-    <span style="opacity:.75">Preparado para {d['nombre']}
-    {"· NIU " + d['niu'] if d['niu'] else ""}</span>
+  <div class="pt-izq">
+    {logo_img}
+    <div class="marca">WE POWER</div>
+    <div class="club">WE CLUB</div>
+    <div class="linea"></div>
+    <div class="lema">Comunidades energéticas de WE Power.<br><br>
+      Energía limpia, a menor costo y sin invertir en equipos.</div>
+    <div class="web">wepower.com.co</div>
+  </div>
+
+  <div class="pt-der">
+    <div class="saludo">¡Hola,<br>{d['nombre']}!</div>
+
+    <p>En <b>WE POWER</b> trabajamos para poner la energía del sol a disposición de
+    su empresa. <b>We Club es nuestra comunidad energética:</b> reunimos a varias
+    empresas para comprar energía solar en conjunto y, al comprar entre muchos,
+    el precio por kWh baja.</p>
+
+    <p>Su empresa <b>sigue conectada con su operador de energía actual</b>. Nosotros
+    le suministramos una parte de su consumo desde nuestras granjas solares, a una
+    tarifa menor que la que paga hoy.</p>
+
+    <p><b>No tiene que invertir en paneles ni equipos.</b> Generamos la energía en
+    granjas solares cercanas y se la llevamos a su empresa. Nosotros nos encargamos
+    de los trámites; usted, de ahorrar.</p>
+
+    <div class="cifras">
+      <div class="cifra-caja"><b>+100 MW</b><span>gestionados</span></div>
+      <div class="cifra-caja"><b>+50</b><span>proyectos en el país</span></div>
+      <div class="cifra-caja"><b>100 %</b><span>solar</span></div>
+    </div>
+
+    <p class="cierre">En las páginas siguientes encontrará el ahorro estimado para
+    su empresa, calculado con su propio consumo y con las tarifas que paga hoy.</p>
+
+    <div class="asesor-portada">
+      <p style="margin-bottom:1mm"><b>{d['asesor_nombre']}</b><br>
+        {d['asesor_tel']}<br>{d['asesor_mail']}</p>
+      <p class="chico gris" style="margin:0">{d['ciudad']} · {d['fecha']}
+        {"· NIU " + d['niu'] if d['niu'] else ""}</p>
+    </div>
   </div>
 </div>
 
