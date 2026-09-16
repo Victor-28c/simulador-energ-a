@@ -54,6 +54,12 @@ def millones(v):
 #  Esta interfaz no define ninguna regla de negocio: solo las usa.
 
 
+# --- Asesor comercial por defecto -----------------------------------------
+ASESOR_NOMBRE = "Ricardo Orozco"
+ASESOR_TEL = "3017877074"
+ASESOR_MAIL = "colombia@wepower.com.co"
+
+
 # =========================================================
 # LOS TEXTOS DE AYUDA  (el "?" de cada elemento)
 # =========================================================
@@ -467,21 +473,26 @@ st.caption("Completa los datos y te generamos el informe en PDF, con tus número
            "y la información de WE Power.")
 
 with st.form("datos_informe"):
+    #  Los placeholders son genéricos a propósito: un nombre de ejemplo se
+    #  confunde con un dato ya escrito.
     f1, f2 = st.columns(2)
     with f1:
-        nombre = st.text_input("Nombre completo", placeholder="Nombre Apellido")
-        telefono = st.text_input("Teléfono", placeholder="300 000 0000")
-        ciudad = st.text_input("Ciudad", placeholder="Bogotá")
+        nombre = st.text_input("Nombre completo", placeholder="Nombre y apellido")
+        telefono = st.text_input("Teléfono", placeholder="0000000000")
+        ciudad = st.text_input("Ciudad", placeholder="Ciudad")
     with f2:
-        direccion = st.text_input("Dirección", placeholder="C 0 # 0-00")
-        niu = st.text_input("CC", placeholder="0000000000",
+        direccion = st.text_input("Dirección", placeholder="Dirección del predio")
+        niu = st.text_input("NIU o número de contrato", placeholder="0000000",
+                            help="El número que identifica tu frontera comercial. "
+                                 "Aparece en tu factura.")
         fecha = st.date_input("Fecha del informe", value=datetime.date.today())
 
-    with st.expander("Datos del asesor (opcional)"):
+    #  El asesor viene puesto por defecto y se puede cambiar por cotización.
+    with st.expander("Datos del asesor"):
         a1, a2, a3 = st.columns(3)
-        asesor_nombre = a1.text_input("Asesor")
-        asesor_tel = a2.text_input("Teléfono del asesor")
-        asesor_mail = a3.text_input("Correo del asesor")
+        asesor_nombre = a1.text_input("Asesor", value=ASESOR_NOMBRE)
+        asesor_tel = a2.text_input("Teléfono del asesor", value=ASESOR_TEL)
+        asesor_mail = a3.text_input("Correo del asesor", value=ASESOR_MAIL)
 
     st.caption("Al continuar autorizas a WE Power a usar estos datos para "
                "contactarte sobre esta cotización.  *(texto provisional: falta "
