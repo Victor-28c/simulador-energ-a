@@ -80,7 +80,10 @@ def millones(v):
 # --- Opciones de descuento que se ofrecen ---------------------------------
 #  "Otro" queda para un descuento pactado por fuera de estos valores: sin él,
 #  un 7 % negociado obligaría a tocar el código.
-DESCUENTOS = ("0 %", "5 %", "10 %", "15 %", "Otro")
+#  DESCUENTO_INICIAL es solo cuál botón viene pulsado al abrir la página: la
+#  calculadora trabaja siempre con el que esté seleccionado.
+DESCUENTOS = ("5 %", "10 %", "Otro")
+DESCUENTO_INICIAL = "5 %"
 
 
 # --- Asesor comercial por defecto -----------------------------------------
@@ -143,9 +146,7 @@ AYUDA = {
 
     "descuento_cu":
         "Sirve para calcular el valor del kWh que entrega la comunidad. Se le "
-        "aplica este descuento al CU asignado y se le resta el Cv, porque ese "
-        "cargo se lo cobra aparte el comercializador: "
-        "CU × (1 − descuento) − Cv. Es la misma fórmula del modelo financiero.",
+        "aplica este descuento al CU asignado y se le resta el Cv.",
 
     "anios":
         "Para la proyección. Se asume que la tarifa de red sube más rápido que "
@@ -210,17 +211,16 @@ with st.sidebar:
     #  que se vea que es un resultado y no algo que se escribe.
     opcion = st.segmented_control(
         "Descuento sobre CU asignado", DESCUENTOS,
-        default=f"{sim.DESCUENTO_SOBRE_CU * 100:.0f} %",
-        help=AYUDA["descuento_cu"])
+        default=DESCUENTO_INICIAL, help=AYUDA["descuento_cu"])
 
-    if opcion is None:                     # si se deselecciona, vuelve al de casa
-        opcion = f"{sim.DESCUENTO_SOBRE_CU * 100:.0f} %"
+    if opcion is None:                     # si se deselecciona, vuelve al inicial
+        opcion = DESCUENTO_INICIAL
 
     if opcion == "Otro":
         descuento = st.number_input("¿Cuánto?  (%)", min_value=0.0, max_value=60.0,
-                                    value=sim.DESCUENTO_SOBRE_CU * 100, step=0.5,
-                                    help="Para descuentos pactados fuera de los "
-                                         "valores de siempre.") / 100.0
+                                    value=5.0, step=0.5,
+                                    help="Para un descuento pactado por fuera de "
+                                         "los valores de siempre.") / 100.0
     else:
         descuento = float(opcion.replace(" %", "")) / 100.0
 
@@ -228,8 +228,8 @@ with st.sidebar:
 
     st.text_input("Valor del kWh de la comunidad (COP/kWh)",
                   value=cop(cu_ce, 2), disabled=True,
-                  help="No se escribe: sale solo del descuento que escogiste "
-                       "arriba y de los valores de CU y Cv.")
+                  help="Resulta del descuento seleccionado y de los valores "
+                       "de CU y Cv.")
     st.caption(esc(f"{cop(cu, 2)} × {num(1 - descuento, 2)} − {cop(cv, 2)} = "
                    f"{cop(cu_ce, 2)}"))
 
