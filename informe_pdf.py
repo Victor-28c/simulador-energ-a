@@ -127,16 +127,38 @@ tr.total td {{ font-weight: bold; color: {AZUL}; border-top: 1.5px solid {AZUL};
 ul {{ margin: 0 0 2mm 0; padding-left: 4.5mm; }}
 li {{ margin-bottom: 1.5mm; }}
 .nota {{ font-size: 7.5pt; color: {GRIS}; margin-top: 3mm; line-height: 1.4; }}
+
+/* SOLO PANTALLA. Al imprimir manda @page; pero si alguien abre el HTML en el
+   navegador no hay @page y el contenido se estira a lo ancho de la ventana.
+   Aquí se dibujan hojas A4 centradas para que se vea igual que en papel. */
+@media screen {{
+    body {{ background: #6E7480; padding: 8mm 0; }}
+    .portada, .pagina {{
+        width: 210mm; min-height: 297mm; margin: 0 auto 8mm auto;
+        background: #fff; box-shadow: 0 1mm 4mm rgba(0,0,0,.35);
+        padding: 16mm 14mm; }}
+    .portada {{ background: {AZUL}; padding: 22mm 20mm; }}
+    .aviso-print {{
+        max-width: 210mm; margin: 0 auto 6mm auto; padding: 4mm 6mm;
+        background: #FFF7E3; border-left: 4px solid {NARANJA};
+        border-radius: 2mm; font-size: 10pt; color: #5A4A20; }}
+}}
+@media print {{ .aviso-print {{ display: none; }} }}
 """
 
 
 def _cab(titulo, logo):
-    return (f'<div class="cab"><img src="{logo}"><div class="t">{titulo}</div></div>')
+    # Si falta el archivo del logo, va el nombre en texto: el encabezado
+    # no queda cojo y el informe se puede emitir igual.
+    marca = ('<img src="' + logo + '">') if logo else (
+        '<b style="color:' + AZUL + '; font-size:11pt">WE POWER</b>')
+    return '<div class="cab">' + marca + '<div class="t">' + titulo + '</div></div>'
 
 
 def construir_html(d):
     """d es un diccionario con TODO lo que va impreso. Ver armar_datos()."""
     logo = _logo_base64()
+    logo_img = ('<img src="' + logo + '">') if logo else ""
 
     # ---------- proyección: barras proporcionales ----------
     tope = max(p["acumulado"] for p in d["proyeccion"]) or 1
@@ -152,9 +174,14 @@ def construir_html(d):
     return f"""<!DOCTYPE html><html><head><meta charset="utf-8">
 <style>{CSS}</style></head><body>
 
+<div class="aviso-print">
+  <b>Para guardarlo en PDF:</b> presione <b>Ctrl + P</b> (o <b>Cmd + P</b> en Mac)
+  y elija <b>Guardar como PDF</b>. Este aviso no se imprime.
+</div>
+
 <!-- ============ 1. PORTADA ============ -->
 <div class="portada">
-  <img src="{logo}">
+  {logo_img}
   <h1>WE POWER</h1>
   <div class="club">WE CLUB</div>
   <div class="lema">Comunidades energéticas de WE Power<br>
