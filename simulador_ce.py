@@ -59,14 +59,16 @@ INFLACION_CE_ANUAL = 0.05
 # 6. EL PRECIO
 # =========================================================
 
-#   El precio no se escribe: se acuerda como un DESCUENTO sobre el CU, y de
-#   ahí sale. Es la misma fórmula del Excel del socio (celda D10):
+#   El precio no se escribe: se acuerda como un DESCUENTO sobre el CU
+#   asignado, y de ahí sale. Es la misma fórmula del Excel del socio
+#   (celda D10):
 #
 #       precio = CU x (1 - descuento) - Cv
 #
-#   Con CU 915 y Cv 130:  10 % -> $693,50   ·   5 % -> $739,25
-
-DESCUENTO_SOBRE_CU = 0.10
+#   Con CU 915 y Cv 130:  5 % -> $739,25   ·   10 % -> $693,50
+#
+#   Aquí no hay un descuento "de casa": el modelo calcula con el que le
+#   pasen. Cuál viene pulsado al abrir la página es cosa de la interfaz.
 
 
 def precio_por_descuento(cu, cv, descuento):
