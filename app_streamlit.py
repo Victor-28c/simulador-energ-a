@@ -21,22 +21,24 @@ def _cargar(nombre):
 
     Un `import informe_pdf` a secas falla en algunos despliegues porque la
     carpeta del script no siempre queda en la ruta de búsqueda de Python.
-    Aquí se carga por ruta absoluta, igual que el modelo. Si el archivo no
-    está, devuelve None y la página sigue funcionando sin el informe.
+    Devuelve (módulo, error). Si algo falla, el error se guarda COMPLETO en
+    vez de tragárselo: sin eso no hay forma de saber si el archivo no está
+    o si está pero no carga.
     """
     ruta = os.path.join(AQUI, nombre + ".py")
     if not os.path.exists(ruta):
-        return None
+        return None, "no-existe"
     try:
         e = importlib.util.spec_from_file_location(nombre, ruta)
         m = importlib.util.module_from_spec(e)
         e.loader.exec_module(m)
-        return m
-    except Exception:
-        return None
+        return m, None
+    except Exception as err:
+        import traceback
+        return None, traceback.format_exc()
 
 
-informe_pdf = _cargar("informe_pdf")
+informe_pdf, _error_informe = _cargar("informe_pdf")
 
 
 # --- Formato colombiano ----------------------------------------------------
@@ -491,9 +493,25 @@ with st.expander("Ver cómo crece tu ahorro con los años"):
 st.divider()
 
 if informe_pdf is None:
-    st.warning("Para generar el informe en PDF falta el archivo **informe_pdf.py** "
-               "en la misma carpeta que esta app. El resto del simulador funciona "
-               "normalmente.")
+    if _error_informe == "no-existe":
+        st.warning("Para generar el informe en PDF falta el archivo "
+                   "**informe_pdf.py** en la misma carpeta que esta app.")
+    else:
+        st.error("El archivo **informe_pdf.py** está, pero no cargó.")
+
+    #  Diagnóstico: en vez de adivinar, que la app diga qué ve de verdad.
+    with st.expander("Ver el diagnóstico"):
+        st.write("**Carpeta donde está buscando:**")
+        st.code(AQUI)
+        try:
+            archivos = sorted(os.listdir(AQUI))
+        except Exception as e:
+            archivos = [f"(no se pudo leer la carpeta: {e})"]
+        st.write("**Archivos que hay ahí:**")
+        st.code("\n".join(archivos) or "(vacía)")
+        if _error_informe and _error_informe != "no-existe":
+            st.write("**Error al cargar:**")
+            st.code(_error_informe)
     st.stop()
 
 st.subheader("¿Quieres llevarte este cálculo?")
