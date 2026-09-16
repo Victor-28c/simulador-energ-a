@@ -8,6 +8,8 @@ import importlib.util
 import pandas as pd
 import streamlit as st
 
+import informe_pdf
+
 # --- Cargar el modelo desde la carpeta de este archivo ---------------------
 AQUI = os.path.dirname(os.path.abspath(__file__))
 _spec = importlib.util.spec_from_file_location(
@@ -91,8 +93,9 @@ AYUDA = {
         "Es el 80 % de tu consumo.",
 
     "premium":
-        "Ponemos hasta el 100 % de tu consumo (sujeto a la disponibilidad de "
-        "la generación de la planta). Límite de reparto (PDE): máximo 9,9 %.",
+        "Ponemos hasta el 100 % de tu consumo, sujeto a la energía disponible "
+        "en la planta. Se cotiza caso por caso porque depende de tu curva de "
+        "consumo mes a mes, no solo de tu promedio.",
 
     "cu":
         "El valor por kWh de tu factura, antes de contribución.",
@@ -226,11 +229,16 @@ if cu_ce >= umb["techo_absoluto"]:
 # --- Los tres planes, calculados ------------------------------------------
 pde_bas = sim.pde_por_cobertura(sim.PLAN_BASICO, consumo)
 pde_est = sim.pde_por_cobertura(sim.PLAN_ESTANDAR, consumo)
-pde_pre = sim.pde_por_cobertura(sim.PLAN_PREMIUM, consumo)
+
+#  El Premium NO se calcula ni se muestra en cifra: se cotiza caso por caso.
+#  Dos razones. (1) Al cubrir el 100 % del consumo promedio, en un mes flojo
+#  sobra energía, y todavía no está definido si al usuario se le factura lo
+#  asignado o solo lo que alcanzó a usar — la diferencia mueve millones.
+#  (2) El cupo depende de la energía libre que tenga la planta ese momento.
+#  Poner un número aquí sería prometer algo que no podemos sostener.
 
 r_bas = sim.balance_mensual(consumo, pde_bas, cu, cv, cu_ce, contrib)
 r_est = sim.balance_mensual(consumo, pde_est, cu, cv, cu_ce, contrib)
-r_pre = sim.balance_mensual(consumo, pde_pre, cu, cv, cu_ce, contrib)
 
 #  El Estándar es el plan por defecto: alimenta el número grande y el
 #  antes/después.
@@ -344,7 +352,6 @@ p1, p2, p3 = st.columns(3)
 PLANES = [
     (p1, "Básico", r_bas, AYUDA["basico"], "Siempre disponible."),
     (p2, "Estándar", r_est, AYUDA["estandar"], "El más pedido."),
-    (p3, "Premium", r_pre, AYUDA["premium"], "Cupo limitado."),
 ]
 
 for col, nombre, res, ayuda, pie in PLANES:
@@ -357,24 +364,24 @@ for col, nombre, res, ayuda, pie in PLANES:
             st.caption(f"Ponemos el {pct(res['cobertura'], 0)} de tu energía")
             st.caption(f":gray[{pie}]")
 
-st.info("**¿Te interesa el plan Premium?**  "
-        "**Comunícate con nosotros** y lo revisamos contigo.")
+with p3:
+    with st.container(border=True):
+        st.metric("Premium", "A tu medida", help=AYUDA["premium"])
+        st.caption("Ponemos hasta el 100 % de tu energía.")
+        st.progress(1.0)
+        st.caption("Se cotiza contigo")
+        st.caption(":gray[Cupo limitado.]")
 
-#  Cuando el consumo es alto, los planes se van igualando entre sí porque hay
-#  un máximo de energía que se le puede asignar a una sola frontera. Se le
-#  explica al usuario SIN nombrar el tope ni la norma: lo único que necesita
-#  saber es por qué dos tarjetas le muestran el mismo número.
-if abs(pde_bas - pde_pre) < 1e-9:
-    st.warning("Con tu consumo los tres planes te dan lo mismo: ya estarías "
-               "recibiendo el máximo que le podemos asignar a un solo usuario. "
-               "**Comunícate con nosotros** para revisar tu caso.")
-elif abs(pde_est - pde_pre) < 1e-9:
-    st.caption("Con tu consumo, el Estándar y el Premium te dan lo mismo: los "
-               "dos llegan al máximo que te podemos asignar.")
-elif r_pre["cobertura"] < 0.995:
-    st.caption(f"Con tu consumo, el Premium alcanza a cubrir el "
-               f"{pct(r_pre['cobertura'], 0)} de tu energía: es el máximo que "
-               f"le podemos asignar a un solo usuario.")
+st.info("**¿Te interesa el plan Premium?** Es a la medida: revisamos tu consumo "
+        "mes a mes y te pasamos la cifra. **Comunícate con nosotros.**")
+
+#  Ningún usuario puede recibir más de cierta energía al mes, así que con
+#  consumos muy altos el Básico y el Estándar terminan dando lo mismo. Se le
+#  explica sin nombrar el tope ni la norma.
+if abs(pde_bas - pde_est) < 1e-9:
+    st.warning("Con tu consumo, el Básico y el Estándar te dan lo mismo: ya "
+               "estarías recibiendo el máximo que le podemos asignar a un solo "
+               "usuario. **Comunícate con nosotros** para revisar tu caso.")
 
 
 # =========================================================
@@ -414,14 +421,15 @@ st.caption(f"{sim.MIEMBROS_ACTUALES} miembros activos  ·  "
 # BLOQUE 8 — PROYECCIÓN
 # =========================================================
 
+#  Se calcula aquí afuera porque el informe en PDF también la necesita.
+proy = sim.proyectar(consumo, pde_actual, cu, cv, cu_ce, contrib, int(anios))
+
 with st.expander("Ver cómo crece tu ahorro con los años"):
 
     st.caption(f"Con el plan Estándar. La tarifa de red sube "
                f"{pct(sim.INFLACION_RED_ANUAL, 1)} al año y el precio de WE Power "
                f"{pct(sim.INFLACION_CE_ANUAL, 1)}: como la red sube más rápido, "
                f"la brecha se abre y tu ahorro crece.")
-
-    proy = sim.proyectar(consumo, pde_actual, cu, cv, cu_ce, contrib, int(anios))
 
     st.dataframe(pd.DataFrame([{
         "Año":               p["anio"],
@@ -455,7 +463,8 @@ with st.expander("Ver cómo crece tu ahorro con los años"):
 
 st.divider()
 st.subheader("¿Quieres llevarte este cálculo?")
-st.caption("Completa tus datos y te generamos el informe de ahorro estimado.")
+st.caption("Completa los datos y te generamos el informe en PDF, con tus números "
+           "y la información de WE Power.")
 
 with st.form("datos_informe"):
     f1, f2 = st.columns(2)
@@ -465,34 +474,50 @@ with st.form("datos_informe"):
         ciudad = st.text_input("Ciudad", placeholder="Bogotá")
     with f2:
         direccion = st.text_input("Dirección", placeholder="Calle 123 # 45-67")
-        niu = st.text_input("NIU o número de contrato",
-                            placeholder="1075607",
-                            help="El número que identifica tu frontera "
-                                 "comercial. Aparece en tu factura.")
+        niu = st.text_input("NIU o número de contrato", placeholder="1075607",
+                            help="El número que identifica tu frontera comercial. "
+                                 "Aparece en tu factura.")
         fecha = st.date_input("Fecha del informe", value=datetime.date.today())
 
+    with st.expander("Datos del asesor (opcional)"):
+        a1, a2, a3 = st.columns(3)
+        asesor_nombre = a1.text_input("Asesor")
+        asesor_tel = a2.text_input("Teléfono del asesor")
+        asesor_mail = a3.text_input("Correo del asesor")
+
     st.caption("Al continuar autorizas a WE Power a usar estos datos para "
-               "contactarte sobre esta cotización.  *(texto provisional: "
-               "falta redactar la autorización de tratamiento de datos)*")
+               "contactarte sobre esta cotización.  *(texto provisional: falta "
+               "redactar la autorización de tratamiento de datos)*")
 
     generar = st.form_submit_button("Generar informe", type="primary")
 
+#  El PDF se guarda en session_state: al hacer clic en "Descargar" Streamlit
+#  vuelve a correr la página entera, y sin esto el botón desaparecería.
 if generar:
-    st.success("Así quedaría la cabecera del informe:")
-    st.dataframe(pd.DataFrame([
-        {"Campo": "Nombre",            "Dato": nombre or "—"},
-        {"Campo": "Teléfono",          "Dato": telefono or "—"},
-        {"Campo": "Dirección",         "Dato": direccion or "—"},
-        {"Campo": "Ciudad",            "Dato": ciudad or "—"},
-        {"Campo": "NIU / contrato",    "Dato": niu or "—"},
-        {"Campo": "Fecha",             "Dato": fecha.strftime("%d/%m/%Y")},
-        {"Campo": "Consumo promedio",  "Dato": f"{num(consumo)} kWh/mes"},
-        {"Campo": "Plan",              "Dato": "Estándar"},
-        {"Campo": "Ahorro estimado",   "Dato": f"{cop(r['ahorro_mes'])} al mes"},
-    ]), hide_index=True, width='stretch')
-    st.info("El informe descargable todavía no está hecho. Esto es solo la "
-            "recolección de datos.")
+    if not nombre.strip():
+        st.error("Escribe al menos el nombre para generar el informe.")
+    else:
+        datos = informe_pdf.armar_datos(
+            {"nombre": nombre, "telefono": telefono, "direccion": direccion,
+             "ciudad": ciudad, "niu": niu,
+             "fecha": fecha.strftime("%d/%m/%Y"),
+             "asesor_nombre": asesor_nombre, "asesor_tel": asesor_tel,
+             "asesor_mail": asesor_mail},
+            sim, r, au, proy, consumo, cu, cv, cu_ce)
+        try:
+            st.session_state["pdf"] = informe_pdf.generar_pdf(datos)
+            st.session_state["pdf_nombre"] = (
+                "Informe WE Club - " + (nombre.strip() or "cliente") + ".pdf")
+        except ImportError:
+            st.session_state.pop("pdf", None)
+            st.error("Falta WeasyPrint. Revisa que el repositorio tenga el "
+                     "archivo packages.txt con las librerías del sistema.")
 
+if st.session_state.get("pdf"):
+    st.success("Informe listo.")
+    st.download_button("Descargar informe en PDF", st.session_state["pdf"],
+                       file_name=st.session_state["pdf_nombre"],
+                       mime="application/pdf", type="primary")
 
 st.caption(":gray[Estimación basada en tu consumo promedio y en las tarifas "
            "vigentes. El ahorro real depende de tu consumo mes a mes y de la "
