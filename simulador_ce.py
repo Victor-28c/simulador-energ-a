@@ -56,7 +56,26 @@ INFLACION_CE_ANUAL = 0.05
 
 
 # =========================================================
-# 6. LOS PLANES
+# 6. EL PRECIO
+# =========================================================
+
+#   El precio no se escribe: se acuerda como un DESCUENTO sobre el CU, y de
+#   ahí sale. Es la misma fórmula del Excel del socio (celda D10):
+#
+#       precio = CU x (1 - descuento) - Cv
+#
+#   Con CU 915 y Cv 130:  10 % -> $693,50   ·   5 % -> $739,25
+
+DESCUENTO_SOBRE_CU = 0.10
+
+
+def precio_por_descuento(cu, cv, descuento):
+    """Del descuento comercial al precio por kWh que se le cobra al usuario."""
+    return cu * (1 - descuento) - cv
+
+
+# =========================================================
+# 7. LOS PLANES
 # =========================================================
 
 #   Un plan es una COBERTURA: qué parte del consumo del usuario pone la CE.
@@ -76,7 +95,7 @@ PLANES = (("Básico", PLAN_BASICO),
 
 
 # =========================================================
-# 7. DATOS DE LA COMUNIDAD PARA MOSTRAR
+# 8. DATOS DE LA COMUNIDAD PARA MOSTRAR
 # =========================================================
 #   No entran en ningún cálculo: son solo para escribirlos en pantalla.
 #   Antes aquí vivía la lista de los 12 contratos con su PDE declarado. Se
