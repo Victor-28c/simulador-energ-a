@@ -469,14 +469,12 @@ st.caption("Completa los datos y te generamos el informe en PDF, con tus número
 with st.form("datos_informe"):
     f1, f2 = st.columns(2)
     with f1:
-        nombre = st.text_input("Nombre completo", placeholder="Rodolfo Pérez")
-        telefono = st.text_input("Teléfono", placeholder="300 123 4567")
+        nombre = st.text_input("Nombre completo", placeholder="Nombre Apellido")
+        telefono = st.text_input("Teléfono", placeholder="300 000 0000")
         ciudad = st.text_input("Ciudad", placeholder="Bogotá")
     with f2:
-        direccion = st.text_input("Dirección", placeholder="Calle 123 # 45-67")
-        niu = st.text_input("NIU o número de contrato", placeholder="1075607",
-                            help="El número que identifica tu frontera comercial. "
-                                 "Aparece en tu factura.")
+        direccion = st.text_input("Dirección", placeholder="C 0 # 0-00")
+        niu = st.text_input("CC", placeholder="0000000000",
         fecha = st.date_input("Fecha del informe", value=datetime.date.today())
 
     with st.expander("Datos del asesor (opcional)"):
