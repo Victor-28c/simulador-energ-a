@@ -72,7 +72,7 @@ def millones(v):
 #  entiende y los planes nunca se invierten entre sí.
 #
 #  Los tres planes y la fórmula del PDE viven en simulador_ce.py:
-#      sim.PLAN_BASICO / PLAN_ESTANDAR / PLAN_PREMIUM
+#      sim.pde_escenario_minimo() / PLAN_ESTANDAR / PLAN_PREMIUM
 #      sim.pde_por_cobertura(cobertura, consumo)
 #  Esta interfaz no define ninguna regla de negocio: solo las usa.
 
@@ -82,8 +82,8 @@ def millones(v):
 #  un 7 % negociado obligaría a tocar el código.
 #  DESCUENTO_INICIAL es solo cuál botón viene pulsado al abrir la página: la
 #  calculadora trabaja siempre con el que esté seleccionado.
-DESCUENTOS = ("5 %", "10 %", "Otro")
-DESCUENTO_INICIAL = "5 %"
+DESCUENTOS = ("10 %", "Otro")
+DESCUENTO_INICIAL = "10 %"
 
 
 # --- Asesor comercial por defecto -----------------------------------------
@@ -123,7 +123,8 @@ AYUDA = {
         "más el precio acordado con WE Power.",
 
     "basico":
-        "Cubrimos alrededor de un tercio de tu consumo. Es el mínimo posible.",
+        "El piso: la tajada más pequeña que tendría un miembro si la comunidad "
+        "se llenara. Es el mínimo que podrías llegar a recibir.",
 
     "estandar":
         "Es el 80 % de tu consumo.",
@@ -218,7 +219,7 @@ with st.sidebar:
 
     if opcion == "Otro":
         descuento = st.number_input("¿Cuánto?  (%)", min_value=0.0, max_value=60.0,
-                                    value=5.0, step=0.5,
+                                    value=10.0, step=0.5,
                                     help="Para un descuento pactado por fuera de "
                                          "los valores de siempre.") / 100.0
     else:
@@ -271,6 +272,16 @@ st.caption("✓ Sin inversión  ·  ✓ Sin obra  ·  ✓ Sigues con tu mismo co
 
 
 # --- Validaciones ----------------------------------------------------------
+#  El servicio está pensado para empresas. Por debajo del mínimo no se cotiza:
+#  el reparto de la planta no da para consumos residenciales.
+if consumo < sim.CONSUMO_MINIMO_KWH:
+    st.warning(f"Nuestro servicio está pensado para empresas con un consumo "
+               f"desde **{num(sim.CONSUMO_MINIMO_KWH)} kWh al mes** — unos "
+               f"{cop(sim.CONSUMO_MINIMO_KWH * cu * (1 + contrib))} de factura. "
+               f"Con {num(consumo)} kWh al mes todavía no podemos hacerte una "
+               f"propuesta.\n\n**Escríbenos** y revisamos tu caso.")
+    st.stop()
+
 if cv > cu:
     st.error("El Cv no puede ser mayor que el CU. Revisa los supuestos.")
     st.stop()
@@ -285,7 +296,7 @@ if cu_ce >= umb["techo_absoluto"]:
 
 
 # --- Los tres planes, calculados ------------------------------------------
-pde_bas = sim.pde_por_cobertura(sim.PLAN_BASICO, consumo)
+pde_bas = sim.pde_escenario_minimo(consumo)
 pde_est = sim.pde_por_cobertura(sim.PLAN_ESTANDAR, consumo)
 
 #  El Premium NO se calcula ni se muestra en cifra: se cotiza caso por caso.
@@ -349,13 +360,13 @@ with a1:
 with a2:
     #  El guion tiene que ser ASCII: Streamlit lo usa para saber que el delta
     #  es negativo. Con delta_color="inverse", bajar la factura sale en verde.
-    st.metric("Ahora pagas", cop(r["factura_con"]),
+    st.metric("Ahora pagas (entre las dos)", cop(r["factura_con"]),
               "-" + cop(r["ahorro_mes"]).replace("$ ", ""),
               delta_color="inverse", help=AYUDA["despues"])
     st.caption(f"{num(r['asignada'])} kWh se te descuentan de la factura; el "
                f"resto lo pagas al precio de siempre.")
 
-st.markdown("**¿De qué se compone la nueva factura?**")
+st.markdown("**¿De qué se compone lo que vas a pagar?**")
 #  Los dos primeros renglones iban al MISMO destinatario —el comercializador—
 #  y verlos separados confundía. Se juntan en uno solo: el usuario recibe dos
 #  cobros, de dos empresas distintas. Así de simple.
@@ -366,10 +377,12 @@ st.dataframe(pd.DataFrame([
      "Valor": cop(pago_comercializador)},
     {"Concepto": "Lo que le pagas a WE Power",
      "Valor": cop(r["pago_ce"])},
-    {"Concepto": "TOTAL DE TU NUEVA FACTURA", "Valor": cop(r["factura_con"])},
+    {"Concepto": "TOTAL, ENTRE LAS DOS FACTURAS", "Valor": cop(r["factura_con"])},
 ]), hide_index=True, width='stretch')
 
-st.caption(f"Tu comercializador te sigue facturando toda la energía. Ese cobro "
+st.caption(f"Recibirás **dos facturas**: la de tu comercializador, como siempre, "
+           f"y la de la comunidad. "
+           f"Tu comercializador te sigue facturando toda la energía; ese cobro "
            f"junta dos cosas: los {num(r['energia_red'])} kWh que no alcanzamos a "
            f"cubrir, al precio de siempre, y el cargo que te hace por los "
            f"{num(r['exc1'])} kWh que sí cubrimos.")
