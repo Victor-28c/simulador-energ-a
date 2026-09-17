@@ -1,10 +1,8 @@
+#  El tema de la app. Streamlit lo lee solo, no hay que importarlo.
+#  Son los mismos colores del informe en PDF.
 [theme]
 base = "light"
-primaryColor = "#E2A03C"
+primaryColor = "#004191"
 backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#E7F0FC"
+secondaryBackgroundColor = "#F2F6FB"
 textColor = "#00305F"
-font = "sans serif"
-
-[browser]
-gatherUsageStats = false
