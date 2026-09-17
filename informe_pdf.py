@@ -231,7 +231,7 @@ def construir_html(d):
       <p style="margin-bottom:1mm"><b>{d['asesor_nombre']}</b><br>
         {d['asesor_tel']}<br>{d['asesor_mail']}</p>
       <p class="chico gris" style="margin:0">{d['ciudad']} · {d['fecha']}
-        {"· NIU " + d['niu'] if d['niu'] else ""}</p>
+        {"· " + d['correo'] if d['correo'] else ""}</p>
     </div>
   </div>
 </div>
@@ -248,7 +248,7 @@ def construir_html(d):
       <div class="dato"><div class="k">Teléfono</div><div class="v">{d['telefono']}</div></div>
       <div class="dato"><div class="k">Dirección</div><div class="v">{d['direccion']}</div></div>
       <div class="dato"><div class="k">Ciudad</div><div class="v">{d['ciudad']}</div></div>
-      <div class="dato"><div class="k">NIU / contrato</div><div class="v">{d['niu']}</div></div>
+      <div class="dato"><div class="k">Correo</div><div class="v">{d['correo']}</div></div>
       <div class="dato"><div class="k">Consumo promedio</div><div class="v">{num(d['consumo'])} kWh/mes</div></div>
       <div class="dato"><div class="k">Tarifa que paga hoy</div><div class="v">{cop(d['cu'],2)} /kWh</div></div>
       <div class="dato"><div class="k">Plan</div><div class="v">Estándar</div></div>
@@ -535,7 +535,7 @@ def construir_html(d):
     mes, de la tarifa que cobre el comercializador y de la energía disponible en la comunidad.
     Este documento no constituye una oferta vinculante ni un contrato de suministro de energía.<br><br>
     Documento generado el {d['fecha']} para {d['nombre']}
-    {"· NIU " + d['niu'] if d['niu'] else ""}.
+    {"· " + d['correo'] if d['correo'] else ""}.
   </p>
 </div>
 
@@ -558,7 +558,7 @@ def armar_datos(form, sim, r, au, proyeccion, consumo, cu, cv, cu_ce):
         "telefono":  form.get("telefono") or "—",
         "direccion": form.get("direccion") or "—",
         "ciudad":    form.get("ciudad") or "—",
-        "niu":       form.get("niu") or "",
+        "correo":    form.get("correo") or "",
         "fecha":     form.get("fecha") or datetime.date.today().strftime("%d/%m/%Y"),
         "asesor_nombre": form.get("asesor_nombre") or "—",
         "asesor_tel":    form.get("asesor_tel") or "—",
