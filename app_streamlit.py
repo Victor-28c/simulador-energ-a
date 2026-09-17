@@ -214,33 +214,33 @@ with st.sidebar:
         "Descuento sobre CU asignado", DESCUENTOS,
         default=DESCUENTO_INICIAL, help=AYUDA["descuento_cu"])
 
-    #  Si no hay descuento escogido no se puede calcular el precio. Antes se
-    #  caía al valor inicial y la casilla mostraba una cifra como si alguien
-    #  la hubiera elegido: eso confunde. Mejor no mostrar nada y detenerse.
-    if opcion is None:
-        st.text_input("Valor del kWh de la comunidad (COP/kWh)",
-                      value="—", disabled=True,
-                      help="Escoge primero el descuento.")
-        st.caption("Escoge un descuento para ver el valor del kWh.")
-        falta_descuento = True
-        descuento = None
-    else:
-        falta_descuento = False
+    #  Sin descuento escogido se calcula con 0 %, no se bloquea la página ni se
+    #  cae al valor inicial (eso último mostraba una cifra como si alguien la
+    #  hubiera elegido). Con 0 % el precio es el "precio neutro": la comunidad
+    #  no cede nada de tarifa y el ahorro viene solo de la contribución.
+    sin_descuento = opcion is None
+    if sin_descuento:
+        descuento = 0.0
 
     if opcion == "Otro":
         descuento = st.number_input("¿Cuánto?  (%)", min_value=0.0, max_value=60.0,
                                     value=10.0, step=0.5,
                                     help="Para un descuento pactado por fuera de "
                                          "los valores de siempre.") / 100.0
-    elif not falta_descuento:
+    elif not sin_descuento:
         descuento = float(opcion.replace(" %", "")) / 100.0
 
-    if not falta_descuento:
-        cu_ce = sim.precio_por_descuento(cu, cv, descuento)
-        st.text_input("Valor del kWh de la comunidad (COP/kWh)",
-                      value=cop(cu_ce, 2), disabled=True,
-                      help="Resulta del descuento seleccionado y de los valores "
-                           "de CU y Cv.")
+    cu_ce = sim.precio_por_descuento(cu, cv, descuento)
+
+    st.text_input("Valor del kWh de la comunidad (COP/kWh)",
+                  value=cop(cu_ce, 2), disabled=True,
+                  help="Resulta del descuento seleccionado y de los valores "
+                       "de CU y Cv.")
+
+    if sin_descuento:
+        st.caption("Calculado **sin descuento comercial**: el ahorro viene solo "
+                   "de la contribución evitada. Escoge un descuento para la "
+                   "oferta real.")
 
     anios = st.number_input("Período de proyección (años)",
                             min_value=1, max_value=25, value=5, step=1,
@@ -252,10 +252,6 @@ with st.sidebar:
 
 contrib = sim.CONTRIBUCION if contribuye else 0.0
 
-if falta_descuento:
-    st.info("Escoge el **descuento sobre CU asignado** en la barra de la "
-            "izquierda para calcular tu ahorro.")
-    st.stop()
 
 
 # =========================================================
