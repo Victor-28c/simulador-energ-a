@@ -123,7 +123,7 @@ AYUDA = {
         "más el precio acordado con WE Power.",
 
     "basico":
-        "El ahorro mínimo que podrías recibir. ",
+        "El ahorro mínimo que podrías recibir.",
 
     "estandar":
         "Es el 80 % de tu consumo.",
@@ -235,6 +235,10 @@ with st.sidebar:
                   help="Resulta del descuento seleccionado y de los valores "
                        "de CU y Cv.")
 
+    if sin_descuento:
+        st.caption("Calculado **sin descuento comercial**: el ahorro viene solo "
+                   "de la contribución evitada. Escoge un descuento para la "
+                   "oferta real.")
 
     anios = st.number_input("Período de proyección (años)",
                             min_value=1, max_value=25, value=5, step=1,
@@ -585,9 +589,9 @@ with st.form("datos_informe"):
         ciudad = st.text_input("Ciudad", placeholder="Ciudad")
     with f2:
         direccion = st.text_input("Dirección", placeholder="Dirección del predio")
-        niu = st.text_input("NIU o número de contrato", placeholder="0000000",
-                            help="El número que identifica tu frontera comercial. "
-                                 "Aparece en tu factura.")
+        correo = st.text_input("Correo electrónico",
+                               placeholder="nombre@empresa.com",
+                               help="A este correo te llega la oferta.")
         fecha = st.date_input("Fecha del informe", value=datetime.date.today())
 
     #  Los datos del asesor NO se editan aquí: son de WE Power, no del cliente.
@@ -608,7 +612,7 @@ if generar:
     else:
         datos = informe_pdf.armar_datos(
             {"nombre": nombre, "telefono": telefono, "direccion": direccion,
-             "ciudad": ciudad, "niu": niu,
+             "ciudad": ciudad, "correo": correo,
              "fecha": fecha.strftime("%d/%m/%Y"),
              "asesor_nombre": ASESOR_NOMBRE, "asesor_tel": ASESOR_TEL,
              "asesor_mail": ASESOR_MAIL},
