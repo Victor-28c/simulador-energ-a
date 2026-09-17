@@ -3,7 +3,6 @@
 # =========================================================
 
 import os
-import base64
 import datetime
 import importlib.util
 import pandas as pd
@@ -65,67 +64,93 @@ def millones(v):
     return "$ " + f"{v / 1_000_000:,.1f}".replace(".", ",") + " M"
 
 
-def _logo_b64():
-    """Igual que en informe_pdf.py: mete el logo en base64 para no
-    depender de la ruta del archivo."""
-    ruta = os.path.join(AQUI, "logo.png")
-    if os.path.exists(ruta):
-        with open(ruta, "rb") as f:
-            return "data:image/png;base64," + base64.b64encode(f.read()).decode()
-    return ""
-
-
 # =========================================================
 # LOS PLANES
 # =========================================================
+#  Un plan es una COBERTURA: qué parte del consumo del usuario pone WE Power.
+#  El PDE sale de ahí, no al revés — así el usuario compara en el idioma que
+#  entiende y los planes nunca se invierten entre sí.
+#
+#  Los tres planes y la fórmula del PDE viven en simulador_ce.py:
+#      sim.pde_escenario_minimo() / PLAN_ESTANDAR / PLAN_PREMIUM
+#      sim.pde_por_cobertura(cobertura, consumo)
+#  Esta interfaz no define ninguna regla de negocio: solo las usa.
+
+
+# --- Opciones de descuento que se ofrecen ---------------------------------
+#  "Otro" queda para un descuento pactado por fuera de estos valores: sin él,
+#  un 7 % negociado obligaría a tocar el código.
+#  DESCUENTO_INICIAL es solo cuál botón viene pulsado al abrir la página: la
+#  calculadora trabaja siempre con el que esté seleccionado.
 DESCUENTOS = ("10 %", "Otro")
 DESCUENTO_INICIAL = "10 %"
 
+
+# --- Asesor comercial por defecto -----------------------------------------
 ASESOR_NOMBRE = "Ricardo Orozco"
 ASESOR_TEL = "3017877074"
 ASESOR_MAIL = "colombia@wepower.com.co"
+
+
+# =========================================================
+# LOS TEXTOS DE AYUDA  (el "?" de cada elemento)
+# =========================================================
 
 AYUDA = {
     "factura":
         "El total de tu última factura de energía. Si no la tienes a mano, "
         "un estimado sirve.",
+
     "consumo":
         "Tu consumo promedio de los últimos 6 a 12 meses.",
+
     "ahorro":
         "Lo que dejarías de pagar cada mes con el plan Estándar. Es tu factura "
         "de hoy menos lo que pagarías con WE Power.",
+
     "antes":
         "Lo que pagas hoy: todo tu consumo comprado a la red, con la "
         "contribución del 20 % incluida.",
+
     "despues":
         "Tu nueva factura: lo que tu comercializador te sigue cobrando por la "
         "energía, más lo que le pagas a WE Power por la parte que cubrimos.",
+
     "kwh":
         "Toda tu energía sigue llegando por la red. Lo que cambia es el precio: "
         "los kWh que cubrimos salen de tu consumo facturado, así que no pagan "
         "contribución, y sobre ellos solo pagas el cargo del comercializador "
         "más el precio acordado con WE Power.",
+
     "basico":
         "El ahorro mínimo que podrías recibir.",
+
     "estandar":
         "Es el 80 % de tu consumo.",
+
     "premium":
         "Cubrimos hasta el 100 % de tu consumo, sujeto a la energía disponible "
         "en la planta.",
+
     "cu":
         "El valor por kWh de tu factura, antes de contribución.",
+
     "cv":
         "Comercialización. Ya está dentro del CU. El comercializador lo cobra "
         "por cada kWh permutado (Art. 26, Res. CREG 174/2021).",
+
     "contribuye":
         "Sí: estratos 5 y 6 y comerciales. No: industriales exentos por código "
         "CIIU (Ley 1430/2010, art. 2).",
+
     "descuento_cu":
         "Sirve para calcular el valor del kWh que entrega la comunidad. Se le "
         "aplica este descuento al CU asignado y se le resta el Cv.",
+
     "anios":
         "Para la proyección. Se asume que la tarifa de red sube más rápido que "
         "el precio de WE Power, así que la brecha se abre con los años.",
+
     "pde":
         "Porcentaje de Distribución de Excedentes: la tajada de la generación "
         "de la planta que te corresponde. Los PDE de todos los miembros suman "
@@ -133,68 +158,36 @@ AYUDA = {
         "101 072 de 2025).",
 }
 
+
+# =========================================================
+# LA PÁGINA
+# =========================================================
+
 st.set_page_config(page_title="WE Power · Ahorra en tu factura",
                    page_icon="⚡", layout="centered")
 
-_logo = _logo_b64()
-
-# Logo estándar de Streamlit (esquina superior y sidebar).
-if _logo:
-    st.logo(_logo, size="large")
-
-st.markdown(f"""
+st.markdown("""
 <style>
-  .etiqueta  {{ font-size: .75rem; letter-spacing: .08em; text-transform: uppercase;
-               color: #2E7D32; font-weight: 700; margin-bottom: .2rem; }}
-  .etiqueta-gris {{ font-size: .75rem; letter-spacing: .08em; text-transform: uppercase;
-               color: #888; font-weight: 700; margin-bottom: .2rem; }}
-  .pilar     {{ font-size: .92rem; color: #444; }}
-  .nota      {{ font-size: .875rem; color: rgba(49,51,63,.6); margin-top: -.5rem; }}
-  .nota abbr {{ text-decoration: underline dotted; cursor: help; }}
-  div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMetricValue"] {{
+  .etiqueta  { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase;
+               color: #2E7D32; font-weight: 700; margin-bottom: .2rem; }
+  .etiqueta-gris { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase;
+               color: #888; font-weight: 700; margin-bottom: .2rem; }
+  .pilar     { font-size: .92rem; color: #444; }
+  /* Imita el st.caption, pero admite HTML: lo necesitamos para el <abbr>. */
+  .nota      { font-size: .875rem; color: rgba(49,51,63,.6); margin-top: -.5rem; }
+  .nota abbr { text-decoration: underline dotted; cursor: help; }
+  /* Las tarjetas de los planes son angostas: el número se corta con el
+     tamaño que Streamlit le pone por defecto a st.metric. */
+  div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMetricValue"] {
       font-size: 1.5rem;
-  }}
-
-  /* ---- Identidad WE Power ---------------------------------------- */
-
-  .we-masthead {{
-      display: flex; align-items: center; gap: .9rem;
-      background: linear-gradient(135deg, #004191 0%, #00305F 100%);
-      margin: -1rem -1rem 1.8rem -1rem; padding: 1.15rem 1.6rem;
-      border-radius: 0 0 14px 14px;
-  }}
-  .we-masthead img {{ height: 38px; }}
-  .we-masthead .we-marca {{ color: #fff; font-weight: 800; font-size: 1.05rem;
-      letter-spacing: .01em; line-height: 1.15; }}
-  .we-masthead .we-tag {{ color: rgba(255,255,255,.82); font-size: .78rem; }}
-
-  /* Separadores en el color de acento, no el gris por defecto */
-  div[data-testid="stDivider"] hr, hr {{ border-color: #E2A03C33; }}
-
-  /* Insignia sobre la tarjeta del plan recomendado */
-  .we-badge {{
-      display: inline-block; background: #E2A03C; color: #fff;
-      font-size: .68rem; font-weight: 700; letter-spacing: .03em;
-      padding: .15rem .55rem; border-radius: 999px; margin-bottom: .5rem;
-  }}
-
-  /* Resalta la tarjeta del plan Estándar (2da columna) frente al Básico */
-  div[data-testid="column"]:nth-of-type(2)
-      div[data-testid="stVerticalBlockBorderWrapper"] {{
-      border-color: #E2A03C; border-width: 1.5px;
-  }}
+  }
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown(f"""
-<div class="we-masthead">
-  {'<img src="' + _logo + '">' if _logo else ''}
-  <div>
-    <div class="we-marca">WE POWER</div>
-    <div class="we-tag">Comunidades energéticas · We Club</div>
-  </div>
-</div>
-""", unsafe_allow_html=True)
+
+# =========================================================
+# SUPUESTOS  (lo técnico, fuera del camino)
+# =========================================================
 
 with st.sidebar:
     st.header("Ajustar supuestos")
@@ -212,10 +205,17 @@ with st.sidebar:
     contribuye = st.checkbox("Paga contribución del 20 %", value=True,
                              help=AYUDA["contribuye"])
 
+    #  Se escoge el DESCUENTO, no el precio: es el dato que se negocia. El
+    #  precio sale de ahí y se muestra abajo, en una casilla bloqueada para
+    #  que se vea que es un resultado y no algo que se escribe.
     opcion = st.segmented_control(
         "Descuento sobre CU asignado", DESCUENTOS,
         default=DESCUENTO_INICIAL, help=AYUDA["descuento_cu"])
 
+    #  Sin descuento escogido se calcula con 0 %, no se bloquea la página ni se
+    #  cae al valor inicial (eso último mostraba una cifra como si alguien la
+    #  hubiera elegido). Con 0 % el precio es el "precio neutro": la comunidad
+    #  no cede nada de tarifa y el ahorro viene solo de la contribución.
     sin_descuento = opcion is None
     if sin_descuento:
         descuento = 0.0
@@ -250,6 +250,12 @@ with st.sidebar:
 
 contrib = sim.CONTRIBUCION if contribuye else 0.0
 
+
+
+# =========================================================
+# BLOQUE 1 — HERO
+# =========================================================
+
 st.title("Ahorra en tu factura con WE Power")
 st.subheader("sin instalar un solo panel.")
 
@@ -273,6 +279,10 @@ else:
 
 st.caption("✓ Sin inversión  ·  ✓ Sin obra  ·  ✓ Sigues con tu mismo comercializador")
 
+
+# --- Validaciones ----------------------------------------------------------
+#  El servicio está pensado para empresas. Por debajo del mínimo no se cotiza:
+#  el reparto de la planta no da para consumos residenciales.
 if consumo < sim.CONSUMO_MINIMO_KWH:
     st.warning(f"Nuestro servicio está pensado para empresas con un consumo "
                f"desde **{num(sim.CONSUMO_MINIMO_KWH)} kWh al mes** — unos "
@@ -293,14 +303,30 @@ if cu_ce >= umb["techo_absoluto"]:
                  f"El precio tendría que bajar de {cop(umb['techo_absoluto'], 2)}."))
     st.stop()
 
+
+# --- Los tres planes, calculados ------------------------------------------
 pde_bas = sim.pde_escenario_minimo(consumo)
 pde_est = sim.pde_por_cobertura(sim.PLAN_ESTANDAR, consumo)
+
+#  El Premium NO se calcula ni se muestra en cifra: se cotiza caso por caso.
+#  Dos razones. (1) Al cubrir el 100 % del consumo promedio, en un mes flojo
+#  sobra energía, y todavía no está definido si al usuario se le factura lo
+#  asignado o solo lo que alcanzó a usar — la diferencia mueve millones.
+#  (2) El cupo depende de la energía libre que tenga la planta ese momento.
+#  Poner un número aquí sería prometer algo que no podemos sostener.
 
 r_bas = sim.balance_mensual(consumo, pde_bas, cu, cv, cu_ce, contrib)
 r_est = sim.balance_mensual(consumo, pde_est, cu, cv, cu_ce, contrib)
 
+#  El Estándar es el plan por defecto: alimenta el número grande y el
+#  antes/después.
 r = r_est
 pde_actual = pde_est
+
+
+# =========================================================
+# BLOQUE 2 — EL NÚMERO
+# =========================================================
 
 st.divider()
 
@@ -328,6 +354,11 @@ st.info(f"**Es un estimado.** Está calculado con un consumo promedio de "
         f"también: en un mes que consumas más, ahorras más; en uno que consumas "
         f"menos, ahorras menos.")
 
+
+# =========================================================
+# BLOQUE 3 — TU FACTURA, ANTES Y DESPUÉS
+# =========================================================
+
 st.divider()
 st.subheader("Tu factura, antes y después")
 
@@ -336,6 +367,8 @@ with a1:
     st.metric("Antes pagabas", cop(r["factura_sin"]), help=AYUDA["antes"])
     st.caption(f"Le comprabas a la red los {num(consumo)} kWh que consumes.")
 with a2:
+    #  El guion tiene que ser ASCII: Streamlit lo usa para saber que el delta
+    #  es negativo. Con delta_color="inverse", bajar la factura sale en verde.
     st.metric("Ahora pagas (entre las dos)", cop(r["factura_con"]),
               "-" + cop(r["ahorro_mes"]).replace("$ ", ""),
               delta_color="inverse", help=AYUDA["despues"])
@@ -343,6 +376,9 @@ with a2:
                f"resto lo pagas al precio de siempre.")
 
 st.markdown("**¿De qué se compone lo que vas a pagar?**")
+#  Los dos primeros renglones iban al MISMO destinatario —el comercializador—
+#  y verlos separados confundía. Se juntan en uno solo: el usuario recibe dos
+#  cobros, de dos empresas distintas. Así de simple.
 pago_comercializador = r["pago_red"] + r["cargo_cv"]
 
 st.dataframe(pd.DataFrame([
@@ -363,6 +399,11 @@ st.caption(f"Recibirás **dos facturas**: la de tu comercializador, como siempre
 st.caption(esc(f"Antes: {cop(r['factura_sin'])}.  Ahora: {cop(r['factura_con'])}.  "
                f"Te quedan {cop(r['ahorro_mes'])} en el bolsillo cada mes, "
                f"{cop(r['ahorro_anual'])} al año."))
+
+
+# =========================================================
+# BLOQUE 4 — POR CADA kWh
+# =========================================================
 
 st.divider()
 st.subheader("Por cada kWh que te cubrimos")
@@ -385,6 +426,11 @@ st.caption(f"Tu factura no baja ese mismo {pct(au['descuento_efectivo'], 0)} por
            f"{pct(au['descuento_efectivo'], 0)} × {pct(r['cobertura'], 0)} = "
            f"{pct(r['ahorro_pct'], 1)} de tu factura.")
 
+
+# =========================================================
+# BLOQUE 5 — LOS PLANES
+# =========================================================
+
 st.divider()
 st.subheader("Ahorros posibles")
 st.caption("Lo único que cambia entre los tres es qué parte de tu consumo "
@@ -400,16 +446,12 @@ PLANES = [
 for col, nombre, res, ayuda, pie in PLANES:
     with col:
         with st.container(border=True):
-            if nombre == "Estándar":
-                st.markdown(f'<span class="we-badge">{pie}</span>',
-                            unsafe_allow_html=True)
             st.metric(nombre, cop(res["ahorro_mes"]), help=ayuda)
             st.caption(esc(f"al mes  ·  {millones(res['ahorro_anual'])} al año  ·  "
                            f"{pct(res['ahorro_pct'], 1)} de tu factura"))
             st.progress(min(1.0, res["cobertura"]))
             st.caption(f"Cubrimos el {pct(res['cobertura'], 0)} de tu consumo")
-            if nombre != "Estándar":
-                st.caption(f":gray[{pie}]")
+            st.caption(f":gray[{pie}]")
 
 with p3:
     with st.container(border=True):
@@ -422,10 +464,18 @@ with p3:
 st.info("**¿Te interesa el plan Premium?** Es a la medida: revisamos tu consumo "
         "mes a mes y te pasamos la cifra. **Comunícate con nosotros.**")
 
+#  Ningún usuario puede recibir más de cierta energía al mes, así que con
+#  consumos muy altos el Básico y el Estándar terminan dando lo mismo. Se le
+#  explica sin nombrar el tope ni la norma.
 if abs(pde_bas - pde_est) < 1e-9:
     st.warning("Con tu consumo, el Básico y el Estándar te dan lo mismo: ya "
                "estarías recibiendo el máximo que le podemos asignar a un solo "
                "usuario. **Comunícate con nosotros** para revisar tu caso.")
+
+
+# =========================================================
+# BLOQUE 6 — DE DÓNDE SALE
+# =========================================================
 
 st.divider()
 st.subheader("¿De dónde sale el ahorro?")
@@ -446,11 +496,22 @@ with q3:
                 "que pusimos nosotros. No cambias de operador.</div>",
                 unsafe_allow_html=True)
 
+
+# =========================================================
+# BLOQUE 7 — CONFIANZA
+# =========================================================
+
 st.divider()
 st.caption(f"{sim.MIEMBROS_ACTUALES} miembros activos  ·  "
            f"{num(sim.GENERACION_ANUAL_KWH)} kWh/año  ·  100 % solar  ·  "
            f"Amparado por las Resoluciones CREG 174 de 2021 y 101 072 de 2025.")
 
+
+# =========================================================
+# BLOQUE 8 — PROYECCIÓN
+# =========================================================
+
+#  Se calcula aquí afuera porque el informe en PDF también la necesita.
 proy = sim.proyectar(consumo, pde_actual, cu, cv, cu_ce, contrib, int(anios))
 
 with st.expander("Ver cómo crece tu ahorro con los años"):
@@ -472,6 +533,24 @@ with st.expander("Ver cómo crece tu ahorro con los años"):
 
     st.caption("El acumulado son pesos corrientes, sin traer a valor presente.")
 
+# =========================================================
+# BLOQUE 9 — DATOS PARA IMPRIMIR EL INFORME   [ BORRADOR ]
+# =========================================================
+#  ESTO ES UN ESQUELETO, NO ESTÁ TERMINADO.
+#
+#  Lo que falta decidir antes de darle forma:
+#    1. ¿Qué es "capacidad"? ¿La potencia contratada del usuario, la de su
+#       frontera, o la de la planta? Cambia de dónde sale el dato.
+#    2. ¿El informe se descarga (PDF/HTML) o se le envía a WE Power?
+#    3. ¿Qué campos son obligatorios? Hoy no se valida ninguno.
+#    4. Habeas data (Ley 1581 de 2012): recoger nombre, teléfono y dirección
+#       es tratamiento de datos personales. Antes de que esto salga a
+#       producción hace falta la autorización del titular, decir para qué se
+#       usan y quién es el responsable. El aviso de abajo es un marcador.
+#
+#  Por ahora el botón no genera nada: solo muestra cómo quedaría la cabecera
+#  del informe con lo que se escribió.
+
 st.divider()
 
 if informe_pdf is None:
@@ -481,6 +560,7 @@ if informe_pdf is None:
     else:
         st.error("El archivo **informe_pdf.py** está, pero no cargó.")
 
+    #  Diagnóstico: en vez de adivinar, que la app diga qué ve de verdad.
     with st.expander("Ver el diagnóstico"):
         st.write("**Carpeta donde está buscando:**")
         st.code(AQUI)
@@ -500,6 +580,8 @@ st.caption("Completa los datos y te generamos el informe en PDF, con tus número
            "y la información de WE Power.")
 
 with st.form("datos_informe"):
+    #  Los placeholders son genéricos a propósito: un nombre de ejemplo se
+    #  confunde con un dato ya escrito.
     f1, f2 = st.columns(2)
     with f1:
         nombre = st.text_input("Nombre completo", placeholder="Nombre y apellido")
@@ -512,6 +594,8 @@ with st.form("datos_informe"):
                                help="A este correo te llega la oferta.")
         fecha = st.date_input("Fecha del informe", value=datetime.date.today())
 
+    #  Los datos del asesor NO se editan aquí: son de WE Power, no del cliente.
+    #  Se cambian en las constantes ASESOR_* del principio de este archivo.
     st.caption(f"Tu asesor: **{ASESOR_NOMBRE}** · {ASESOR_TEL} · {ASESOR_MAIL}")
 
     st.caption("Al continuar autorizas a WE Power a usar estos datos para "
@@ -520,6 +604,8 @@ with st.form("datos_informe"):
 
     generar = st.form_submit_button("Generar informe", type="primary")
 
+#  El PDF se guarda en session_state: al hacer clic en "Descargar" Streamlit
+#  vuelve a correr la página entera, y sin esto el botón desaparecería.
 if generar:
     if not nombre.strip():
         st.error("Escribe al menos el nombre para generar el informe.")
@@ -532,6 +618,7 @@ if generar:
              "asesor_mail": ASESOR_MAIL},
             sim, r, au, proy, consumo, cu, cv, cu_ce)
         base = "Informe WE Club - " + (nombre.strip() or "cliente")
+        #  El HTML siempre se puede generar: es texto, no depende de nada.
         st.session_state["html"] = informe_pdf.construir_html(datos).encode("utf-8")
         st.session_state["html_nombre"] = base + ".html"
         st.session_state["archivo_nombre"] = base + ".pdf"
@@ -539,6 +626,9 @@ if generar:
             st.session_state["pdf"] = informe_pdf.generar_pdf(datos)
             st.session_state.pop("pdf_error", None)
         except Exception as err:
+            #  No se traga el error: WeasyPrint puede fallar por no estar
+            #  instalado O por faltarle librerías del sistema, y son cosas
+            #  distintas. Sin ver el mensaje real no se sabe cuál es.
             import traceback
             st.session_state.pop("pdf", None)
             st.session_state["pdf_error"] = traceback.format_exc()
@@ -550,6 +640,8 @@ if st.session_state.get("pdf"):
                        mime="application/pdf", type="primary")
 
 elif st.session_state.get("html"):
+    #  Plan B: el mismo informe, en HTML. Se abre en el navegador y desde ahí
+    #  se imprime a PDF (Ctrl+P). Sale idéntico porque es la misma plantilla.
     st.success("Informe listo.")
     st.download_button("Descargar informe", st.session_state["html"],
                        file_name=st.session_state["html_nombre"],
