@@ -92,6 +92,36 @@ ASESOR_TEL = "3017877074"
 ASESOR_MAIL = "colombia@wepower.com.co"
 
 
+# --- Los colores de WE Power ----------------------------------------------
+#  Son los MISMOS del informe en PDF. Si algun dia cambia la marca, se cambia
+#  aqui y en informe_pdf.py: la pantalla y el papel tienen que verse iguales.
+AZUL = "#004191"
+AZUL_OSCURO = "#00305F"
+NARANJA = "#E2A03C"
+NARANJA_TEXTO = "#C07B14"   # el naranja del logo aclara demasiado sobre blanco
+GRIS = "#5A6472"
+GRIS_CLARO = "#F2F6FB"
+
+
+def _logo_data_uri():
+    """El logo, metido dentro de la pagina como texto.
+
+    Streamlit no sirve archivos sueltos de la carpeta, asi que apuntar a
+    "logo_wepower.png" desde el CSS no funciona. Codificandolo en base64 viaja
+    dentro del propio HTML y no depende de ninguna ruta.
+    """
+    import base64
+    for nombre in ("logo_wepower.png", "logo.png"):
+        ruta = os.path.join(AQUI, nombre)
+        if os.path.exists(ruta):
+            with open(ruta, "rb") as f:
+                return "data:image/png;base64," + base64.b64encode(f.read()).decode()
+    return ""
+
+
+LOGO = _logo_data_uri()
+
+
 # =========================================================
 # LOS TEXTOS DE AYUDA  (el "?" de cada elemento)
 # =========================================================
@@ -130,7 +160,8 @@ AYUDA = {
 
     "premium":
         "Cubrimos hasta el 100 % de tu consumo, sujeto a la energía disponible "
-        "en la planta.",
+        "en la planta. Se cotiza caso por caso porque depende de tu curva de "
+        "consumo mes a mes, no solo de tu promedio.",
 
     "cu":
         "El valor por kWh de tu factura, antes de contribución.",
@@ -166,23 +197,169 @@ AYUDA = {
 st.set_page_config(page_title="WE Power · Ahorra en tu factura",
                    page_icon="⚡", layout="centered")
 
-st.markdown("""
+ESTILOS = """
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  .etiqueta  { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase;
-               color: #2E7D32; font-weight: 700; margin-bottom: .2rem; }
-  .etiqueta-gris { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase;
-               color: #888; font-weight: 700; margin-bottom: .2rem; }
-  .pilar     { font-size: .92rem; color: #444; }
-  /* Imita el st.caption, pero admite HTML: lo necesitamos para el <abbr>. */
-  .nota      { font-size: .875rem; color: rgba(49,51,63,.6); margin-top: -.5rem; }
-  .nota abbr { text-decoration: underline dotted; cursor: help; }
-  /* Las tarjetas de los planes son angostas: el número se corta con el
-     tamaño que Streamlit le pone por defecto a st.metric. */
-  div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMetricValue"] {
-      font-size: 1.5rem;
-  }
+
+/* ---------- Tipografia ----------
+   Streamlit dibuja sus iconos (la flecha de cerrar la barra lateral, el "?"
+   de las ayudas) con una fuente de iconos. Si se les cambia la letra, en vez
+   del icono sale su nombre escrito. Por eso la regla no los toca. */
+html, body, .stApp, button, input, textarea, select {
+    font-family: Inter, "Source Sans Pro", -apple-system, sans-serif;
+}
+[data-testid="stIconMaterial"], .material-icons, .material-symbols-rounded,
+span[class*="material"] { font-family: "Material Symbols Rounded" !important; }
+
+/* ---------- Franja azul de arriba, de borde a borde ----------
+   El bloque principal de Streamlit tiene un ancho maximo y padding propios.
+   Los margenes negativos los cancelan para que la franja llegue hasta los
+   bordes de la ventana, igual que la del informe en PDF. */
+/* La barra de herramientas de Streamlit (el menu de arriba a la derecha) se
+   pinta del mismo azul: si no, queda una franja blanca encima y la banda se
+   ve como un recorte pegado en medio de la pagina. */
+[data-testid="stHeader"] { background: AZUL; border: none; box-shadow: none; }
+[data-testid="stHeader"] * { color: #fff !important; }
+/* Esa barra mide 60px y flota encima del contenido; Streamlit deja 96px de
+   aire debajo para que no tape nada. Bajandolo a esos mismos 60px, la banda
+   arranca justo donde termina la barra y las dos se ven como una sola. */
+[data-testid="stMainBlockContainer"] { padding-top: 60px !important; }
+/* Streamlit separa un elemento de otro con 1rem de aire, y arriba de la banda
+   hay un elemento invisible suyo. Ese aire dejaba una tira blanca entre la
+   barra y la banda: se veian DOS franjas azules en vez de una. El margen
+   negativo de arriba se lo come. */
+.franja {
+    background: AZUL;
+    margin: -1rem -100rem 2.2rem -100rem;
+    padding: 1.1rem 100rem 1.1rem 100rem;
+    border-bottom: 3px solid NARANJA;
+    display: flex; align-items: center; gap: 1rem;
+    position: relative; overflow: hidden;
+}
+.franja img { height: 42px; position: relative; z-index: 1; }
+.franja .lema {
+    margin-left: auto; color: #fff; opacity: .82;
+    font-size: .82rem; letter-spacing: .04em; text-transform: uppercase;
+    position: relative; z-index: 1;
+}
+
+/* ---------- Titulos ---------- */
+h1 { color: AZUL !important; font-weight: 800 !important;
+     letter-spacing: -.03em; font-size: 2.6rem !important;
+     line-height: 1.12; }
+/* Los subtitulos de seccion en naranja, con una regla fina debajo: es el
+   mismo tratamiento que tienen en el informe impreso. */
+h2, h3 {
+    color: NARANJA_TEXTO !important; font-weight: 700 !important;
+    letter-spacing: -.01em;
+}
+[data-testid="stHeadingWithActionElements"] h3 {
+    border-bottom: 1.5px solid #EFE2CA; padding-bottom: .45rem;
+}
+
+/* ---------- Las cifras ---------- */
+[data-testid="stMetricValue"] { color: AZUL; font-weight: 700; }
+[data-testid="stMetricLabel"] p {
+    font-size: .78rem !important; letter-spacing: .06em;
+    text-transform: uppercase; color: GRIS !important; font-weight: 600;
+}
+
+/* ---------- Tarjetas de los planes ---------- */
+[class*="st-key-plan-"] {
+    background: GRIS_CLARO; border: 1px solid #E3EAF4 !important;
+    border-radius: 12px !important; padding: .3rem .9rem .5rem .9rem !important;
+    transition: box-shadow .15s ease, transform .15s ease;
+}
+[class*="st-key-plan-"]:hover {
+    box-shadow: 0 8px 22px rgba(0,65,145,.11); transform: translateY(-2px);
+}
+/* Las tarjetas son angostas: con el tamano que Streamlit le pone por defecto
+   a st.metric, "A tu medida" se corta con puntos suspensivos. */
+[class*="st-key-plan-"] [data-testid="stMetricValue"] {
+    font-size: 1.45rem; white-space: normal; line-height: 1.2;
+}
+
+/* ---------- Barras de avance ----------
+   La barra son dos capas: la pista, que es el fondo, y dentro un div que se
+   corre hacia la izquierda para tapar la parte que falta. El color va en ese
+   div de adentro. */
+[data-testid="stProgressBarTrack"] { background: #DCE5F1 !important; }
+/*  Con degradado la barra enganaba: el div de adentro se corre hacia la
+    izquierda, asi que una cobertura del 30 % dejaba a la vista el extremo
+    naranja y se veia "mas fuerte" que una del 80 %. Color plano. */
+[data-testid="stProgressBarTrack"] > div { background: AZUL !important; }
+
+/* ---------- Botones ---------- */
+.stButton button, .stDownloadButton button, .stFormSubmitButton button {
+    border-radius: 8px; font-weight: 600; letter-spacing: .01em;
+}
+button[kind="primary"], button[kind="primaryFormSubmit"] {
+    background: AZUL !important; border-color: AZUL !important;
+}
+button[kind="primary"]:hover, button[kind="primaryFormSubmit"]:hover {
+    background: NARANJA_TEXTO !important; border-color: NARANJA_TEXTO !important;
+}
+
+/* ---------- Barra lateral ---------- */
+[data-testid="stSidebar"] {
+    background: GRIS_CLARO; border-right: 1px solid #E3EAF4;
+}
+[data-testid="stSidebar"] h2 { color: AZUL !important; }
+
+/* ---------- Separadores ---------- */
+hr { border-top: 1px solid #E3EAF4 !important; }
+
+/* ---------- Los textos de siempre ---------- */
+.etiqueta  { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase;
+             color: #2E7D32; font-weight: 700; margin-bottom: .2rem; }
+.etiqueta-gris { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase;
+             color: #888; font-weight: 700; margin-bottom: .2rem; }
+.bajada    { font-size: 1.45rem; font-weight: 600; color: NARANJA_TEXTO;
+             margin: -.6rem 0 1.4rem 0; letter-spacing: -.01em; }
+.pilar     { font-size: .92rem; color: #444; }
+/* Imita el st.caption, pero admite HTML: lo necesitamos para el <abbr>. */
+.nota      { font-size: .875rem; color: rgba(49,51,63,.6); margin-top: -.5rem; }
+.nota abbr { text-decoration: underline dotted; cursor: help; }
+
+/* ---------- Los tres pilares, como tarjetas ---------- */
+.pilar-caja {
+    background: GRIS_CLARO; border: 1px solid #E3EAF4; border-radius: 12px;
+    padding: 1rem 1.1rem; height: 100%;
+}
+.pilar-caja .tit {
+    color: AZUL; font-weight: 700; margin-bottom: .35rem; font-size: 1rem;
+}
+
+/* ---------- Pie ---------- */
+.pie {
+    background: AZUL_OSCURO; color: #fff; border-radius: 12px;
+    padding: 1.1rem 1.4rem; font-size: .82rem; opacity: .95;
+    margin-top: 1rem;
+}
+.pie b { color: NARANJA; }
 </style>
-""", unsafe_allow_html=True)
+"""
+
+#  Los colores se escriben una sola vez, arriba, y se sustituyen aqui: asi no
+#  quedan veinte codigos de color regados por el CSS.
+for _clave, _valor in (("AZUL_OSCURO", AZUL_OSCURO), ("AZUL", AZUL),
+                       ("NARANJA_TEXTO", NARANJA_TEXTO), ("NARANJA", NARANJA),
+                       ("GRIS_CLARO", GRIS_CLARO), ("GRIS", GRIS)):
+    ESTILOS = ESTILOS.replace(_clave, _valor)
+
+#  Una linea en blanco dentro del bloque HTML hace que Markdown lo dé por
+#  terminado y pinte el resto del CSS como texto en la pagina. Se quitan aqui
+#  para poder escribir el CSS de arriba con aire y que igual funcione.
+st.markdown("\n".join(l for l in ESTILOS.splitlines() if l.strip()),
+            unsafe_allow_html=True)
+
+#  La franja con el logo, arriba del todo.
+st.markdown(
+    f"""<div class="franja">
+          {'<img src="' + LOGO + '">' if LOGO else '<b style="color:#fff">WE POWER</b>'}
+          <span class="lema">Comunidades energéticas</span>
+        </div>""",
+    unsafe_allow_html=True)
 
 
 # =========================================================
@@ -257,7 +434,11 @@ contrib = sim.CONTRIBUCION if contribuye else 0.0
 # =========================================================
 
 st.title("Ahorra en tu factura con WE Power")
-st.subheader("sin instalar un solo panel.")
+#  Va como texto y no como st.subheader: no es una seccion de la pagina, es
+#  la segunda linea del titulo, y con el estilo de seccion se leia como si
+#  empezara un bloque nuevo.
+st.markdown("<div class='bajada'>sin instalar un solo panel.</div>",
+            unsafe_allow_html=True)
 
 por_kwh = st.toggle("Prefiero escribir mi consumo en kWh",
                     help="Por defecto te pedimos la factura porque es el número "
@@ -445,7 +626,11 @@ PLANES = [
 
 for col, nombre, res, ayuda, pie in PLANES:
     with col:
-        with st.container(border=True):
+        #  La "key" le pone a la tarjeta la clase CSS st-key-plan-...: es el
+        #  unico enganche estable que da Streamlit para darle estilo a un
+        #  contenedor concreto. Sin ella habria que adivinar nombres de clase
+        #  que cambian en cada version.
+        with st.container(border=True, key="plan-" + nombre.lower()):
             st.metric(nombre, cop(res["ahorro_mes"]), help=ayuda)
             st.caption(esc(f"al mes  ·  {millones(res['ahorro_anual'])} al año  ·  "
                            f"{pct(res['ahorro_pct'], 1)} de tu factura"))
@@ -454,7 +639,7 @@ for col, nombre, res, ayuda, pie in PLANES:
             st.caption(f":gray[{pie}]")
 
 with p3:
-    with st.container(border=True):
+    with st.container(border=True, key="plan-premium"):
         st.metric("Premium", "A tu medida", help=AYUDA["premium"])
         st.caption("Cubrimos hasta el 100 % de tu consumo.")
         st.progress(1.0)
@@ -465,7 +650,13 @@ st.info("**¿Te interesa el plan Premium?** Es a la medida: revisamos tu consumo
         "mes a mes y te pasamos la cifra. **Comunícate con nosotros.**")
 
 #  Ningún usuario puede recibir más de cierta energía al mes, así que con
-#  consumos muy altos el Básico y el Estándar terminan dando lo mismo. 
+#  consumos muy altos el Básico y el Estándar terminan dando lo mismo. Se le
+#  explica sin nombrar el tope ni la norma.
+if abs(pde_bas - pde_est) < 1e-9:
+    st.warning("Con tu consumo, el Básico y el Estándar te dan lo mismo: ya "
+               "estarías recibiendo el máximo que le podemos asignar a un solo "
+               "usuario. **Comunícate con nosotros** para revisar tu caso.")
+
 
 # =========================================================
 # BLOQUE 6 — DE DÓNDE SALE
@@ -474,31 +665,35 @@ st.info("**¿Te interesa el plan Premium?** Es a la medida: revisamos tu consumo
 st.divider()
 st.subheader("¿De dónde sale el ahorro?")
 
-q1, q2, q3 = st.columns(3)
-with q1:
-    st.markdown("**⚡ Energía más barata**")
-    st.markdown("<div class='pilar'>El kWh que cubrimos te sale más barato que "
-                "el que te cobra tu comercializador.</div>", unsafe_allow_html=True)
-with q2:
-    st.markdown("**🧾 Sin contribución**")
-    st.markdown("<div class='pilar'>Los kWh que cubrimos salen de tu consumo "
-                "facturado, así que no pagan el 20 % de contribución.</div>",
-                unsafe_allow_html=True)
-with q3:
-    st.markdown("**📄 Tu factura de siempre**")
-    st.markdown("<div class='pilar'>El comercializador te descuenta la energía "
-                "que pusimos nosotros. No cambias de operador.</div>",
-                unsafe_allow_html=True)
+PILARES = [
+    ("⚡ Energía más barata",
+     "El kWh que cubrimos te sale más barato que el que te cobra tu "
+     "comercializador."),
+    ("🧾 Sin contribución",
+     "Los kWh que cubrimos salen de tu consumo facturado, así que no pagan "
+     "el 20 % de contribución."),
+    ("📄 Tu factura de siempre",
+     "El comercializador te descuenta la energía que pusimos nosotros. No "
+     "cambias de operador."),
+]
+
+for col, (titulo, texto) in zip(st.columns(3), PILARES):
+    with col:
+        st.markdown(f"<div class='pilar-caja'><div class='tit'>{titulo}</div>"
+                    f"<div class='pilar'>{texto}</div></div>",
+                    unsafe_allow_html=True)
 
 
 # =========================================================
 # BLOQUE 7 — CONFIANZA
 # =========================================================
 
-st.divider()
-st.caption(f"{sim.MIEMBROS_ACTUALES} miembros activos  ·  "
-           f"{num(sim.GENERACION_ANUAL_KWH)} kWh/año  ·  100 % solar  ·  "
-           f"Amparado por las Resoluciones CREG 174 de 2021 y 101 072 de 2025.")
+st.markdown(
+    f"<div class='pie'><b>{sim.MIEMBROS_ACTUALES} miembros activos</b> &nbsp;·&nbsp; "
+    f"<b>{num(sim.GENERACION_ANUAL_KWH)} kWh/año</b> de generación &nbsp;·&nbsp; "
+    f"<b>100 % solar</b><br>"
+    f"Amparado por las Resoluciones CREG 174 de 2021 y 101 072 de 2025.</div>",
+    unsafe_allow_html=True)
 
 
 # =========================================================
