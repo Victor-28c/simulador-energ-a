@@ -214,23 +214,33 @@ with st.sidebar:
         "Descuento sobre CU asignado", DESCUENTOS,
         default=DESCUENTO_INICIAL, help=AYUDA["descuento_cu"])
 
-    if opcion is None:                     # si se deselecciona, vuelve al inicial
-        opcion = DESCUENTO_INICIAL
+    #  Si no hay descuento escogido no se puede calcular el precio. Antes se
+    #  caía al valor inicial y la casilla mostraba una cifra como si alguien
+    #  la hubiera elegido: eso confunde. Mejor no mostrar nada y detenerse.
+    if opcion is None:
+        st.text_input("Valor del kWh de la comunidad (COP/kWh)",
+                      value="—", disabled=True,
+                      help="Escoge primero el descuento.")
+        st.caption("Escoge un descuento para ver el valor del kWh.")
+        falta_descuento = True
+        descuento = None
+    else:
+        falta_descuento = False
 
     if opcion == "Otro":
         descuento = st.number_input("¿Cuánto?  (%)", min_value=0.0, max_value=60.0,
                                     value=10.0, step=0.5,
                                     help="Para un descuento pactado por fuera de "
                                          "los valores de siempre.") / 100.0
-    else:
+    elif not falta_descuento:
         descuento = float(opcion.replace(" %", "")) / 100.0
 
-    cu_ce = sim.precio_por_descuento(cu, cv, descuento)
-
-    st.text_input("Valor del kWh de la comunidad (COP/kWh)",
-                  value=cop(cu_ce, 2), disabled=True,
-                  help="Resulta del descuento seleccionado y de los valores "
-                       "de CU y Cv.")
+    if not falta_descuento:
+        cu_ce = sim.precio_por_descuento(cu, cv, descuento)
+        st.text_input("Valor del kWh de la comunidad (COP/kWh)",
+                      value=cop(cu_ce, 2), disabled=True,
+                      help="Resulta del descuento seleccionado y de los valores "
+                           "de CU y Cv.")
 
     anios = st.number_input("Período de proyección (años)",
                             min_value=1, max_value=25, value=5, step=1,
@@ -241,6 +251,11 @@ with st.sidebar:
                f"{sim.MIEMBROS_ACTUALES} miembros actuales")
 
 contrib = sim.CONTRIBUCION if contribuye else 0.0
+
+if falta_descuento:
+    st.info("Escoge el **descuento sobre CU asignado** en la barra de la "
+            "izquierda para calcular tu ahorro.")
+    st.stop()
 
 
 # =========================================================
@@ -585,12 +600,9 @@ with st.form("datos_informe"):
                                  "Aparece en tu factura.")
         fecha = st.date_input("Fecha del informe", value=datetime.date.today())
 
-    #  El asesor viene puesto por defecto y se puede cambiar por cotización.
-    with st.expander("Datos del asesor"):
-        a1, a2, a3 = st.columns(3)
-        asesor_nombre = a1.text_input("Asesor", value=ASESOR_NOMBRE)
-        asesor_tel = a2.text_input("Teléfono del asesor", value=ASESOR_TEL)
-        asesor_mail = a3.text_input("Correo del asesor", value=ASESOR_MAIL)
+    #  Los datos del asesor NO se editan aquí: son de WE Power, no del cliente.
+    #  Se cambian en las constantes ASESOR_* del principio de este archivo.
+    st.caption(f"Tu asesor: **{ASESOR_NOMBRE}** · {ASESOR_TEL} · {ASESOR_MAIL}")
 
     st.caption("Al continuar autorizas a WE Power a usar estos datos para "
                "contactarte sobre esta cotización.  *(texto provisional: falta "
@@ -608,8 +620,8 @@ if generar:
             {"nombre": nombre, "telefono": telefono, "direccion": direccion,
              "ciudad": ciudad, "niu": niu,
              "fecha": fecha.strftime("%d/%m/%Y"),
-             "asesor_nombre": asesor_nombre, "asesor_tel": asesor_tel,
-             "asesor_mail": asesor_mail},
+             "asesor_nombre": ASESOR_NOMBRE, "asesor_tel": ASESOR_TEL,
+             "asesor_mail": ASESOR_MAIL},
             sim, r, au, proy, consumo, cu, cv, cu_ce)
         base = "Informe WE Club - " + (nombre.strip() or "cliente")
         #  El HTML siempre se puede generar: es texto, no depende de nada.
