@@ -465,13 +465,7 @@ st.info("**¿Te interesa el plan Premium?** Es a la medida: revisamos tu consumo
         "mes a mes y te pasamos la cifra. **Comunícate con nosotros.**")
 
 #  Ningún usuario puede recibir más de cierta energía al mes, así que con
-#  consumos muy altos el Básico y el Estándar terminan dando lo mismo. Se le
-#  explica sin nombrar el tope ni la norma.
-if abs(pde_bas - pde_est) < 1e-9:
-    st.warning("Con tu consumo, el Básico y el Estándar te dan lo mismo: ya "
-               "estarías recibiendo el máximo que le podemos asignar a un solo "
-               "usuario. **Comunícate con nosotros** para revisar tu caso.")
-
+#  consumos muy altos el Básico y el Estándar terminan dando lo mismo. 
 
 # =========================================================
 # BLOQUE 6 — DE DÓNDE SALE
