@@ -237,10 +237,6 @@ with st.sidebar:
                   help="Resulta del descuento seleccionado y de los valores "
                        "de CU y Cv.")
 
-    if sin_descuento:
-        st.caption("Calculado **sin descuento comercial**: el ahorro viene solo "
-                   "de la contribución evitada. Escoge un descuento para la "
-                   "oferta real.")
 
     anios = st.number_input("Período de proyección (años)",
                             min_value=1, max_value=25, value=5, step=1,
