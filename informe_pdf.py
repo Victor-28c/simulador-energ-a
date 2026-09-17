@@ -303,23 +303,24 @@ def construir_html(d):
       <div class="chico gris">todo su consumo a la red</div>
     </div>
     <div class="col destacado" style="margin:0">
-      <div style="font-size:8pt; opacity:.9">AHORA PAGA</div>
+      <div style="font-size:8pt; opacity:.9">AHORA PAGA (ENTRE LAS DOS)</div>
       <div style="font-size:19pt; font-weight:bold">{cop(d['factura_con'])}</div>
       <div class="chico" style="color:{NARANJA}">−{cop(d['ahorro_mes'])} cada mes</div>
     </div>
   </div>
 
-  <h3 style="margin-top:6mm">De qué se compone su nueva factura</h3>
+  <h3 style="margin-top:6mm">De qué se compone lo que va a pagar</h3>
   <table>
     <tr><th>Concepto</th><th style="text-align:right">Valor</th></tr>
     <tr><td>Lo que le sigue pagando a su comercializador</td>
         <td class="n">{cop(d['pago_comercializador'])}</td></tr>
     <tr><td>Lo que le paga a WE Power</td>
         <td class="n">{cop(d['pago_ce'])}</td></tr>
-    <tr class="total"><td>TOTAL DE SU NUEVA FACTURA</td>
+    <tr class="total"><td>TOTAL, ENTRE LAS DOS FACTURAS</td>
         <td class="n">{cop(d['factura_con'])}</td></tr>
   </table>
-  <p class="nota" style="margin-top:2mm">Su comercializador le sigue facturando toda
+  <p class="nota" style="margin-top:2mm">Recibirá <b>dos facturas</b>: la de su comercializador, como siempre, y la de la comunidad.
+  Su comercializador le sigue facturando toda
   la energía. Ese cobro junta dos cosas: los {num(d['energia_red'])} kWh que no
   alcanzamos a cubrir, al precio de siempre, y el cargo que le hace por los
   {num(d['exc1'])} kWh que sí cubrimos.</p>
