@@ -123,16 +123,14 @@ AYUDA = {
         "más el precio acordado con WE Power.",
 
     "basico":
-        "El piso: la tajada más pequeña que tendría un miembro si la comunidad "
-        "se llenara. Es el mínimo que podrías llegar a recibir.",
+        "El ahorro mínimo que podrías recibir. ",
 
     "estandar":
         "Es el 80 % de tu consumo.",
 
     "premium":
         "Cubrimos hasta el 100 % de tu consumo, sujeto a la energía disponible "
-        "en la planta. Se cotiza caso por caso porque depende de tu curva de "
-        "consumo mes a mes, no solo de tu promedio.",
+        "en la planta.",
 
     "cu":
         "El valor por kWh de tu factura, antes de contribución.",
