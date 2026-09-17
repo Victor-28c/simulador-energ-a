@@ -46,6 +46,10 @@ TIPO1_EXENTO_DE_CONTRIBUCION = True
 
 TOPE_CONSUMO = 0.80
 
+#   Segmento objetivo: empresas, no hogares (RN-011). Por debajo de esto la
+#   herramienta no cotiza.
+CONSUMO_MINIMO_KWH = 4500.0
+
 
 # =========================================================
 # 5. PARÁMETROS DE PROYECCIÓN
@@ -87,13 +91,33 @@ def precio_por_descuento(cu, cv, descuento):
 #   El plan ESTÁNDAR (80 %) es exactamente ese techo. Los otros dos son el
 #   mismo cálculo con otra cobertura.
 
-PLAN_BASICO = 0.30        # ~ PDE 3 % para un usuario de 15.000 kWh/mes
+#   ESTÁNDAR y PREMIUM se definen por COBERTURA: qué parte del consumo se
+#   cubre. El BÁSICO se define por PDE: es la tajada más pequeña que tendría
+#   un miembro si la comunidad se llenara (un 3 % para cada uno son ~33
+#   miembros, porque los PDE suman 100 %).
+#
+#   El 3 % son 4.500 kWh FIJOS, así que a un cliente pequeño podrían salirle
+#   más de lo que consume. Por eso se topa contra el Estándar: "el 3 %, sin
+#   pasar del Estándar". Así los tres planes nunca se invierten entre sí.
+
+def pde_por_cobertura(cobertura, consumo):
+    """De 'quiero cubrir X % de mi consumo' al PDE que hay que declarar.
+
+    Es la misma fórmula del techo individual del Excel. El tope del 9,9 %
+    no es negociable: Art. 20 num. 1 iii) de la Res. CREG 101 072 de 2025.
+    """
+    return min(PDE_MAXIMO_LEGAL, cobertura * consumo / GENERACION_MENSUAL_KWH)
+
+
+
+PDE_ESCENARIO_MINIMO = 0.03
 PLAN_ESTANDAR = TOPE_CONSUMO
 PLAN_PREMIUM = 1.00
 
-PLANES = (("Básico", PLAN_BASICO),
-          ("Estándar", PLAN_ESTANDAR),
-          ("Premium", PLAN_PREMIUM))
+
+def pde_escenario_minimo(consumo):
+    """El piso: un PDE del 3 %, sin pasarse del plan Estándar."""
+    return min(PDE_ESCENARIO_MINIMO, pde_por_cobertura(PLAN_ESTANDAR, consumo))
 
 
 # =========================================================
@@ -240,15 +264,6 @@ def validar_comunidad(pdes, n_fronteras):
 def energia_asignada(pde):
     """kWh que le corresponden a un PDE en un mes."""
     return GENERACION_MENSUAL_KWH * pde
-
-
-def pde_por_cobertura(cobertura, consumo):
-    """De 'quiero cubrir X % de mi consumo' al PDE que hay que declarar.
-
-    Es la misma fórmula del techo individual del Excel. El tope del 9,9 %
-    no es negociable: Art. 20 num. 1 iii) de la Res. CREG 101 072 de 2025.
-    """
-    return min(PDE_MAXIMO_LEGAL, cobertura * consumo / GENERACION_MENSUAL_KWH)
 
 
 def repartir_por_consumo(consumos):
@@ -517,8 +532,9 @@ def main():
     print("-" * 78)
 
     resultados = {}
-    for nombre, cobertura in PLANES:
-        pde = pde_por_cobertura(cobertura, consumo)
+    for nombre, pde in (("Básico",   pde_escenario_minimo(consumo)),
+                        ("Estándar", pde_por_cobertura(PLAN_ESTANDAR, consumo)),
+                        ("Premium",  pde_por_cobertura(PLAN_PREMIUM, consumo))):
         r = balance_mensual(consumo, pde, cu, cv, cu_ce, contrib)
         resultados[nombre] = (pde, r)
         print(f"  {nombre:<10}{pct(pde, 3):>9}{formatear(r['asignada'], 0):>11}"
