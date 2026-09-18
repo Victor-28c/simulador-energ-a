@@ -23,6 +23,11 @@ AZUL = "#004191"
 AZUL_OSCURO = "#00305F"
 NARANJA = "#E2A03C"
 NARANJA_TEXTO = "#C07B14"   # el del logo aclara demasiado sobre blanco
+
+#  PENDIENTE: el vehículo que estructura el proyecto y administra la
+#  comunidad es una SPV con nombre propio, no "WE POWER". Mientras no se
+#  confirme, sale marcado para que nadie lo pase por alto.
+NOMBRE_SPV = "[nombre de la SPV — por confirmar]"
 GRIS = "#5A6472"
 GRIS_CLARO = "#EEF1F6"
 
@@ -111,6 +116,26 @@ p  {{ margin: 0 0 2.5mm 0; }}
 .cifra-caja span {{ font-size: 7.5pt; color: {GRIS}; }}
 .asesor-portada {{ border-top: 2px solid {NARANJA}; padding-top: 4mm; margin-top: 6mm; }}
 
+/* El sello del descuento: lo pidieron resaltado, no como una frase mas. */
+.sello {{ display: inline-block; background: {NARANJA}; color: #fff;
+          font-weight: 700; font-size: 11.5pt; border-radius: 2mm;
+          padding: 2mm 4mm; }}
+
+/* Las dos facturas, una al lado de la otra. */
+.factura {{ border: 1px solid #D8E0EC; border-radius: 2mm; padding: 4mm;
+            text-align: center; }}
+.factura .de {{ font-size: 8pt; letter-spacing: .5pt; color: {GRIS};
+                text-transform: uppercase; margin-bottom: 1.5mm; }}
+.factura .val {{ font-size: 17pt; font-weight: 700; color: {AZUL}; }}
+.factura .qué {{ font-size: 8pt; color: {GRIS}; margin-top: 1.5mm; }}
+.suma {{ background: {AZUL}; color: #fff; border-radius: 2mm; padding: 3mm;
+         text-align: center; margin-top: 3mm; }}
+.suma b {{ font-size: 14pt; }}
+
+/* La línea de tiempo de la afiliación: la pidieron como dibujo, no como
+   tabla de texto. Va en SVG dentro del propio HTML, sin imagen aparte. */
+.crono {{ width: 100%; height: 52mm; }}
+
 /* --- Encabezado de páginas interiores --- */
 /* El logo trae su propio fondo azul, así que sobre blanco queda como una
    estampilla pegada. Metiéndolo en una banda del MISMO azul, el recuadro
@@ -173,6 +198,68 @@ li {{ margin-bottom: 1.5mm; }}
 }}
 @media print {{ .aviso-print {{ display: none; }} }}
 """
+
+
+#  Las cuatro etapas del cronograma. El ancho de cada tramo es proporcional
+#  a sus semanas, así el dibujo no miente: el tramo de 10 semanas se ve cinco
+#  veces más largo que el de 2.
+ETAPAS = [
+    ("Estudio de su consumo", 2, "Usted facilita la factura"),
+    ("Firma de la afiliación", 2, "Usted firma"),
+    ("Medidor y trámites", 10, "Lo gestiona We Club"),
+    ("Puesta en marcha", 2, "Lo gestiona We Club"),
+]
+
+
+def _crono():
+    """Dibuja el cronograma como una línea de tiempo en SVG."""
+    total = sum(e[1] for e in ETAPAS)
+    ancho, alto = 1000.0, 330.0
+    margen, y = 10.0, 160.0
+    util = ancho - margen * 2
+    piezas = ["<svg class='crono' viewBox='0 0 %g %g'>" % (ancho, alto)]
+    piezas.append("<line x1='%g' y1='%g' x2='%g' y2='%g' stroke='#D8E0EC' "
+                  "stroke-width='3'/>" % (margen, y, ancho - margen, y))
+    x = margen
+    for i, (nombre, semanas, quien) in enumerate(ETAPAS):
+        w = util * semanas / total
+        color = AZUL if "We Club" in quien else NARANJA
+        piezas.append("<rect x='%g' y='%g' width='%g' height='20' rx='10' "
+                      "fill='%s'/>" % (x + 3, y - 10, w - 6, color))
+        cx = x + w / 2
+        piezas.append("<circle cx='%g' cy='%g' r='17' fill='#fff' stroke='%s' "
+                      "stroke-width='3.5'/>" % (cx, y, color))
+        piezas.append("<text x='%g' y='%g' text-anchor='middle' font-size='19' "
+                      "font-weight='700' fill='%s'>%d</text>"
+                      % (cx, y + 7, color, i + 1))
+        #  Los rótulos van alternados, arriba y abajo, para que no se pisen
+        #  cuando dos etapas cortas quedan pegadas.
+        arriba = i % 2 == 0
+        ty = y - 42 if arriba else y + 58
+        #  Los rotulos de los tramos cortos son mas anchos que el tramo, asi
+        #  que en los extremos se anclan al borde para no salirse del lienzo.
+        anc, tx = "middle", cx
+        if i == 0:
+            anc, tx = "start", margen
+        elif i == len(ETAPAS) - 1:
+            anc, tx = "end", ancho - margen
+        piezas.append("<text x='%g' y='%g' text-anchor='%s' font-size='21' "
+                      "font-weight='700' fill='%s'>%s</text>"
+                      % (tx, ty, anc, AZUL_OSCURO, nombre))
+        piezas.append("<text x='%g' y='%g' text-anchor='%s' font-size='18' "
+                      "fill='%s'>%d semanas · %s</text>"
+                      % (tx, ty + (-24 if arriba else 24), anc, GRIS, semanas, quien))
+        x += w
+    #  El cierre, como una etiqueta y no como un renglon suelto.
+    ancho_chip = 540.0
+    piezas.append("<rect x='%g' y='%g' width='%g' height='36' rx='18' "
+                  "fill='%s'/>" % (ancho - margen - ancho_chip, alto - 36,
+                                   ancho_chip, AZUL))
+    piezas.append("<text x='%g' y='%g' text-anchor='middle' font-size='18' "
+                  "font-weight='700' fill='#fff'>Inicio del ahorro: primer mes "
+                  "de operación</text>" % (ancho - margen - ancho_chip / 2, alto - 12))
+    piezas.append("</svg>")
+    return "".join(piezas)
 
 
 def _cab(titulo, logo):
@@ -243,18 +330,19 @@ def construir_html(d):
   <div class="pt-der">
     <div class="saludo">¡Hola, {d['saludo']}!</div>
 
-    <p>En <b>WE POWER</b> trabajamos para poner la energía del sol a disposición de
-    su empresa. <b>We Club es nuestra comunidad energética:</b> reunimos a varias
-    empresas para comprar energía solar en conjunto y, al comprar entre muchos,
-    el precio por kWh baja.</p>
+    <p>En <b>We Club</b> ponemos la energía del sol a disposición de su empresa.
+    <b>We Club es una comunidad energética:</b> reunimos a varias empresas para
+    comprar energía solar en conjunto y, al comprar entre muchos, el precio por
+    kWh baja.</p>
 
     <p>Su empresa <b>sigue conectada con su operador de energía actual</b>. Nosotros
     le suministramos una parte de su consumo desde nuestras granjas solares, a una
     tarifa menor que la que paga hoy.</p>
 
-    <p><b>No tiene que invertir en paneles ni equipos.</b> Generamos la energía en
-    granjas solares cercanas y se la llevamos a su empresa. Nosotros nos encargamos
-    de los trámites; usted, de ahorrar.</p>
+    <p><b>No tiene que invertir un solo peso ni instalar un solo panel.</b>
+    Generamos la energía en granjas solares cercanas y la inyectamos a la red
+    para que usted pueda aprovecharla. Nosotros nos encargamos de los trámites;
+    usted, de ahorrar.</p>
 
     <div class="cifras">
       <div class="cifra-caja"><b>+100 MW</b><span>gestionados</span></div>
@@ -303,25 +391,37 @@ def construir_html(d):
           {pct(d['ahorro_pct'])} menos<br>
           <span style="font-size:9.5pt; font-weight:normal; color:{GRIS}">
             en su factura de energía</span></p>
+        <p class="chico gris" style="margin:2mm 0 0 0">Es el
+          <b>{pct(d['descuento'],0)}</b> de descuento aplicado sobre el
+          <b>{pct(d['cobertura'],1)}</b> de su consumo que le cubrimos.</p>
       </div>
       <div class="caja-borde" style="margin-top:4mm">
         <h3 style="margin-top:0">Energía que le cubrimos</h3>
         <p style="margin:0"><b>{num(d['asignada'])} kWh al mes</b> generados en nuestras granjas solares</p>
         <div class="barra"><div style="width:{min(100, d['cobertura']*100):.0f}%"></div></div>
-        <p class="chico gris" style="margin:0">Equivale al <b>{pct(d['cobertura'],0)}</b> de su
-          consumo. Su energía sigue llegando por la red de siempre: lo que cambia es
-          el precio de esa parte.</p>
+        <p class="chico gris" style="margin:0">Equivale aproximadamente al
+          <b>{pct(d['cobertura'],0)}</b> de su consumo. Su energía sigue llegando
+          por la red de siempre: lo que cambia es el precio de esa parte.</p>
       </div>
     </div>
   </div>
 
   <div class="caja" style="margin-top:5mm">
     <h3 style="margin-top:0">Cómo se calcula</h3>
-    <p style="margin:0">Cubrimos {num(d['asignada'])} kWh al mes a un costo de
+    <p style="margin:0 0 3mm 0">Cubrimos {num(d['asignada'])} kWh al mes a un costo de
     <b>{cop(d['costo_ce_kwh'],2)}</b> por kWh, frente a los <b>{cop(d['costo_red_kwh'],2)}</b>
     que le cuesta hoy cada kWh de la red con contribución incluida.
-    Son <b>{cop(d['ahorro_kwh'],2)}</b> menos por cada kWh cubierto: un
-    <b>{pct(d['descuento'],0)}</b> de descuento.</p>
+    Son <b>{cop(d['ahorro_kwh'],2)}</b> menos por cada kWh cubierto.</p>
+    <div class="sello">{pct(d['descuento'],0)} de descuento por cada kWh que le cubrimos</div>
+    <p class="chico gris" style="margin:3mm 0 0 0">
+      Su comercializador le sigue cobrando el costo de comercialización de
+      <b>{cop(d['cv'],2)}</b> por cada kWh que le cubrimos; nosotros le vendemos
+      esa energía a <b>{cop(d['cu_ce'],2)}</b> por kWh. La suma de los dos es el
+      valor de <b>{cop(d['costo_ce_kwh'],2)}</b> que aparece arriba.</p>
+    <p class="chico gris" style="margin:2mm 0 0 0">
+      Las tarifas de energía se indexan periódicamente. Las cifras de esta oferta
+      se calculan con las tarifas vigentes a la fecha y se actualizan con las
+      indexaciones que apliquen.</p>
   </div>
 
   <p class="nota"><b>Es un estimado.</b> Está calculado con un consumo promedio de
@@ -334,34 +434,33 @@ def construir_html(d):
   {_cab("Su factura, antes y después", logo)}
   <h2>Su factura, antes y después</h2>
 
-  <div class="cols">
-    <div class="col caja-borde" style="text-align:center">
-      <div class="gris chico">ANTES PAGABA</div>
-      <div style="font-size:19pt; font-weight:bold; color:{GRIS}">{cop(d['factura_sin'])}</div>
-      <div class="chico gris">todo su consumo a la red</div>
-    </div>
-    <div class="col destacado" style="margin:0">
-      <div style="font-size:8pt; opacity:.9">AHORA PAGA (ENTRE LAS DOS)</div>
-      <div style="font-size:19pt; font-weight:bold">{cop(d['factura_con'])}</div>
-      <div class="chico" style="color:{NARANJA}">−{cop(d['ahorro_mes'])} cada mes</div>
-    </div>
+  <div class="caja-borde" style="text-align:center; margin-bottom:5mm">
+    <div class="gris chico">ANTES PAGABA, EN UNA SOLA FACTURA</div>
+    <div style="font-size:19pt; font-weight:bold; color:{GRIS}">{cop(d['factura_sin'])}</div>
+    <div class="chico gris">todo su consumo comprado a la red</div>
   </div>
 
-  <h3 style="margin-top:6mm">De qué se compone lo que va a pagar</h3>
-  <table>
-    <tr><th>Concepto</th><th style="text-align:right">Valor</th></tr>
-    <tr><td>Lo que le sigue pagando a su comercializador</td>
-        <td class="n">{cop(d['pago_comercializador'])}</td></tr>
-    <tr><td>Lo que le paga a WE Power</td>
-        <td class="n">{cop(d['pago_ce'])}</td></tr>
-    <tr class="total"><td>TOTAL, ENTRE LAS DOS FACTURAS</td>
-        <td class="n">{cop(d['factura_con'])}</td></tr>
-  </table>
-  <p class="nota" style="margin-top:2mm">Recibirá <b>dos facturas</b>: la de su comercializador, como siempre, y la de la comunidad.
-  Su comercializador le sigue facturando toda
-  la energía. Ese cobro junta dos cosas: los {num(d['energia_red'])} kWh que no
-  alcanzamos a cubrir, al precio de siempre, y el cargo que le hace por los
-  {num(d['exc1'])} kWh que sí cubrimos.</p>
+  <h3>Ahora recibe dos facturas</h3>
+  <div class="cols">
+    <div class="col factura">
+      <div class="de">Factura de su comercializador</div>
+      <div class="val">{cop(d['pago_comercializador'])}</div>
+      <div class="qué">{num(d['energia_red'])} kWh al precio de siempre,
+        más el costo de comercialización de los {num(d['exc1'])} kWh que le cubrimos</div>
+    </div>
+    <div class="col factura">
+      <div class="de">Factura de We Club</div>
+      <div class="val">{cop(d['pago_ce'])}</div>
+      <div class="qué">{num(d['exc1'])} kWh de energía de la comunidad,
+        a {cop(d['cu_ce'],2)} por kWh</div>
+    </div>
+  </div>
+  <div class="suma">Entre las dos: <b>{cop(d['factura_con'])}</b> &nbsp;·&nbsp;
+    <span style="color:{NARANJA}">−{cop(d['ahorro_mes'])} cada mes</span></div>
+
+  <p class="nota" style="margin-top:4mm">Recibe <b>dos facturas</b>: la de su
+  proveedor actual y la de la Comunidad We Club, cada una por la cantidad de
+  energía correspondiente y con las tarifas que aplica cada uno.</p>
 
   <h3 style="margin-top:6mm">Por cada kWh que le cubrimos</h3>
   <div class="cols">
@@ -371,9 +470,10 @@ def construir_html(d):
       <div class="chico gris">energía + 20 % de contribución</div>
     </div>
     <div class="col caja" style="text-align:center">
-      <div class="chico gris">ESE kWh CON WE POWER</div>
+      <div class="chico gris">ESE kWh CON WE CLUB</div>
       <div style="font-size:14pt; font-weight:bold">{cop(d['costo_ce_kwh'],2)}</div>
-      <div class="chico gris">no paga contribución</div>
+      <div class="chico gris">no paga contribución: kWh del club
+        ({cop(d['cu_ce'],2)}) + comercialización ({cop(d['cv'],2)})</div>
     </div>
     <div class="col caja" style="text-align:center; background:{AZUL}; color:#fff">
       <div class="chico" style="opacity:.85">SE AHORRA</div>
@@ -382,9 +482,6 @@ def construir_html(d):
     </div>
   </div>
 
-  <p class="nota">Su factura no baja ese mismo {pct(d['descuento'],0)} porque el descuento
-  aplica solo a los kWh que ponemos nosotros, que son el {pct(d['cobertura'],0)} de su consumo:
-  {pct(d['descuento'],0)} × {pct(d['cobertura'],0)} = {pct(d['ahorro_pct'])} de su factura.</p>
 </div>
 
 <!-- ============ 4. PROYECCIÓN ============ -->
@@ -408,14 +505,18 @@ def construir_html(d):
   <div class="caja" style="margin-top:5mm">
     <h3 style="margin-top:0">Supuestos de la proyección</h3>
     <ul>
-      <li>La tarifa de la red sube <b>{pct(d['infl_red'],0)}</b> al año.</li>
-      <li>El precio de WE Power sube <b>{pct(d['infl_ce'],0)}</b> al año.</li>
-      <li>Su consumo y su participación en la comunidad se mantienen.</li>
+      <li>La tarifa de la red y el precio de We Club suben lo mismo cada año:
+        <b>{pct(d['infl_red'],0)}</b>. Es un supuesto de trabajo y se ajusta con
+        las indexaciones que rijan en cada período.</li>
+      <li>Su consumo se mantiene. Si su consumo cambia, su ahorro cambia con él.</li>
+      <li>Su participación en la comunidad se mantiene. Si se ajusta, el ahorro
+        se recalcula sobre la nueva participación.</li>
       <li>Los valores están en pesos corrientes, sin traer a valor presente.</li>
     </ul>
   </div>
-  <p class="nota">Las cifras son estimadas y dependen de su consumo real y de la tarifa
-  que le cobre su comercializador en cada período.</p>
+  <p class="nota">Las cifras son estimadas y dependen de su consumo real, de la
+  tarifa que le cobre su comercializador en cada período y del incremento de los
+  índices de indexación.</p>
 </div>
 
 <!-- ============ 5. QUÉ CAMBIA ============ -->
@@ -427,9 +528,11 @@ def construir_html(d):
     <div class="col caja">
       <h3 style="margin-top:0">Lo que NO cambia</h3>
       <ul>
-        <li>Su operador de energía y su comercializador siguen siendo los mismos.</li>
-        <li>La continuidad del servicio: si la granja no genera, su operador lo sigue atendiendo.</li>
+        <li>Su comercializador sigue siendo el mismo.</li>
+        <li>La continuidad del servicio: si la granja no genera, su comercializador
+          lo sigue atendiendo.</li>
         <li>Su empresa no pone capital ni compra equipos.</li>
+        <li>No se requiere instalar paneles ni equipos de generación en su predio.</li>
         <li>No tiene que hacer trámites: nosotros los hacemos por usted.</li>
       </ul>
     </div>
@@ -452,14 +555,13 @@ def construir_html(d):
         <td>Agrupa a los usuarios, fija las reglas y asigna la energía entre ellos.</td></tr>
     <tr><td><b>Comercializador habilitado</b></td>
         <td>Compra, vende y factura la energía ante el mercado eléctrico.</td></tr>
-    <tr><td><b>Operador de red</b></td>
-        <td>Transporta la energía y sigue atendiendo su suministro. No cambia.</td></tr>
     <tr><td><b>Su empresa</b></td>
         <td>Consume y paga. Delega en We Club la gestión y los trámites.</td></tr>
   </table>
-  <p class="nota">WE POWER estructura el proyecto y administra la comunidad. No reemplaza a su
-  operador de red, y la venta de energía la hace un comercializador habilitado.
-  Operación amparada por las Resoluciones CREG 174 de 2021 y 101 072 de 2025.</p>
+  <p class="nota">{NOMBRE_SPV} estructura el proyecto, administra la comunidad y
+  traslada sus beneficios a los miembros. La venta de energía la hace un
+  comercializador habilitado. Operación amparada por las Resoluciones CREG 174
+  de 2021 y 101 072 de 2025.</p>
 </div>
 
 <!-- ============ 6. CÓMO SE AFILIA ============ -->
@@ -469,7 +571,8 @@ def construir_html(d):
   <p class="gris">Firmar la afiliación no tiene costo para su empresa.</p>
 
   <div class="paso"><div class="n">PASO 1 · HOY</div>
-    <b>Nos entrega su factura.</b> Con su última factura y sus datos hacemos el estudio de su consumo.</div>
+    <b>Nos facilita una copia de su factura.</b> Con eso basta: con su última
+    factura hacemos el estudio de su consumo. No necesitamos nada más de usted.</div>
   <div class="paso"><div class="n">PASO 2 · EN 5 DÍAS HÁBILES</div>
     <b>Recibe su simulación.</b> Su ahorro estimado, su participación y su capacidad, con los supuestos a la vista.</div>
   <div class="paso"><div class="n">PASO 3 · SI LE SIRVE</div>
@@ -478,49 +581,46 @@ def construir_html(d):
     <b>Queda vinculado.</b> Le informamos su comunidad asignada y le entregamos copia del acuerdo.</div>
 
   <h3 style="margin-top:6mm">Del primer contacto al primer ahorro: 16 semanas</h3>
-  <table>
-    <tr><th>Etapa</th><th>Tiempo</th><th>A cargo de</th></tr>
-    <tr><td>Estudio de consumo y tarifas actuales</td><td>2 semanas</td><td>Usted entrega la factura</td></tr>
-    <tr><td>Firma del acuerdo de afiliación</td><td>2 semanas</td><td>Usted firma</td></tr>
-    <tr><td>Instalación del medidor y gestión ante su operador</td><td>10 semanas</td><td>WE POWER</td></tr>
-    <tr><td>Puesta en marcha y capacitación</td><td>2 semanas</td><td>WE POWER</td></tr>
-    <tr class="total"><td>Inicio del ahorro</td><td colspan="2">Desde el primer mes de operación</td></tr>
-  </table>
-  <p class="nota">Cuatro semanas dependen de su empresa (entregar la factura y firmar); las doce
-  restantes las gestiona WE POWER, sujeto a los tiempos del Ministerio de Energía y del operador de red.</p>
+  {_crono()}
+  <p class="nota">Cuatro semanas dependen de su empresa: facilitar una copia de la
+  factura y firmar. Las doce restantes las gestiona We Club, sujeto a los tiempos
+  del Ministerio de Energía y del operador de red.</p>
 </div>
 
 <!-- ============ 7. RIESGOS ============ -->
 <div class="pagina">
-  {_cab("Riesgos y cómo se cubren", logo)}
-  <h2>Riesgos y cómo se cubren</h2>
-  <p class="gris">Preferimos que los vea ahora y no después de firmar.</p>
+  {_cab("¿Dudas? Aquí se las resolvemos", logo)}
+  <h2>¿Dudas? Aquí se las resolvemos</h2>
+  <p class="gris">Preferimos que las resuelva ahora y no después de firmar.</p>
 
   <table>
-    <tr><th>Riesgo</th><th>Qué pasa</th><th>Quién lo asume</th></tr>
-    <tr><td><b>La granja genera menos de lo proyectado</b></td>
-        <td>Su suministro no se interrumpe: la energía faltante la entrega su operador.</td>
-        <td>WE POWER y el generador</td></tr>
-    <tr><td><b>Su consumo resulta menor al proyectado</b></td>
-        <td>Su ahorro baja en proporción. El plan se revisa en el acuerdo.</td>
-        <td>Compartido</td></tr>
-    <tr><td><b>Si no logramos vincularlo</b></td>
-        <td>Si en doce meses no se crea la comunidad, la afiliación termina y usted no paga nada.</td>
-        <td>WE POWER</td></tr>
-    <tr><td><b>Cambia la regulación aplicable</b></td>
-        <td>La estructura se ajusta o se termina sin penalidad para usted.</td>
-        <td>WE POWER</td></tr>
-    <tr><td><b>No sabe quién le facturará</b></td>
-        <td>Se define quién factura y cuántas facturas recibe antes de firmar.</td>
-        <td>WE POWER</td></tr>
+    <tr><th style="width:38%">Duda</th><th>Respuesta</th></tr>
+    <tr><td><b>¿Y si la granja genera menos de lo proyectado?</b></td>
+        <td>Su suministro no se interrumpe: la energía faltante se la sigue
+            entregando su comercializador, al precio de siempre.</td></tr>
+    <tr><td><b>¿Y si mi consumo resulta menor al proyectado?</b></td>
+        <td>Su ahorro baja en proporción, porque se calcula sobre la energía
+            que efectivamente se le cubre. El plan se revisa en el acuerdo.</td></tr>
+    <tr><td><b>¿Qué pasa si no logran vincularme?</b></td>
+        <td>Si en doce meses no se crea la comunidad, la afiliación termina y
+            usted no paga nada.</td></tr>
+    <tr><td><b>¿Y si cambia la regulación?</b></td>
+        <td>La estructura se ajusta o se termina, sin penalidad para usted.</td></tr>
+    <tr><td><b>¿Quién me va a facturar?</b></td>
+        <td>Se define quién factura y cuántas facturas recibe antes de que
+            usted firme.</td></tr>
+    <tr><td><b>¿Cómo hago para tener energía si la red falla?</b></td>
+        <td>Podemos instalarle baterías, con un costo aparte, para que no se
+            quede sin energía.</td></tr>
   </table>
 
   <div class="caja" style="margin-top:6mm">
     <h3 style="margin-top:0">Qué firma: su afiliación a We Club</h3>
-    <p>Un mandato que nos permite hacer los trámites en su nombre: vincularlo a una comunidad
-    energética y firmar por usted el acuerdo de la comunidad y el contrato de suministro.</p>
-    <p style="margin:0"><b>¿Cuánto cuesta firmar?</b> Nada. Usted solo empieza a pagar cuando se firme
-    el contrato de suministro en su nombre, y en las condiciones de ese contrato.</p>
+    <p>Un mandato que nos permite hacer los trámites en su nombre: firmar por
+    usted los documentos de vinculación a la comunidad energética y el contrato
+    de suministro.</p>
+    <p style="margin:0"><b>¿Cuánto cuesta firmar?</b> Nada. Usted solo empieza a
+    pagar cuando la comunidad energética entre en operación.</p>
   </div>
 </div>
 
@@ -529,9 +629,13 @@ def construir_html(d):
   {_cab("Siguiente paso", logo)}
   <h2>El único paso de hoy es el primero</h2>
 
-  <div class="destacado">
-    <div style="font-size:13pt">Entréguenos su factura y le devolvemos su simulación<br>
-      en 5 días hábiles.</div>
+  <div class="destacado" style="text-align:left">
+    <div style="font-size:12.5pt; margin-bottom:3mm">
+      <b style="color:{NARANJA}">1.</b> &nbsp;Facilítenos una copia de su factura.
+      Le devolvemos su simulación en 5 días hábiles.</div>
+    <div style="font-size:12.5pt; margin:0">
+      <b style="color:{NARANJA}">2.</b> &nbsp;Si ya nos la entregó, ahora solo
+      queda firmar el acuerdo y ¡empezar a ahorrar!</div>
   </div>
 
   <div class="cols" style="margin-top:5mm">
@@ -558,10 +662,10 @@ def construir_html(d):
         <p style="margin:0"><b>Ahorro desde el primer día.</b> Calculamos su ahorro con su propia factura.</p>
       </div>
       <div class="col">
-        <p style="margin-bottom:1mm"><b>Confiabilidad y control.</b> Sigue conectado con su operador
-        actual, así que no arriesga el suministro.</p>
-        <p style="margin:0"><b>Inversión cero.</b> WE POWER cubre el 100 % de la inversión,
-        incluido el medidor inteligente.</p>
+        <p style="margin-bottom:1mm"><b>Confiabilidad y control.</b> Sigue conectado
+        con su comercializador actual, así que no arriesga el suministro.</p>
+        <p style="margin:0"><b>Inversión cero.</b> We Club cubre el 100 % de la
+        inversión, incluido el medidor inteligente.</p>
       </div>
     </div>
   </div>
