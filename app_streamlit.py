@@ -179,8 +179,9 @@ AYUDA = {
         "aplica este descuento al CU asignado y se le resta el Cv.",
 
     "anios":
-        "Para la proyección. Se asume que la tarifa de red sube más rápido que "
-        "el precio de WE Power, así que la brecha se abre con los años.",
+        "Para la proyección. Se asume que la tarifa de red y el precio de WE "
+        "Power suben lo mismo cada año, así que el ahorro crece en pesos pero "
+        "el porcentaje de tu factura se mantiene.",
 
     "pde":
         "Porcentaje de Distribución de Excedentes: la tajada de la generación "
@@ -422,8 +423,7 @@ with st.sidebar:
                             help=AYUDA["anios"])
 
     st.divider()
-    st.caption(f"Planta: {num(sim.GENERACION_MENSUAL_KWH)} kWh/mes  ·  "
-               f"{sim.MIEMBROS_ACTUALES} miembros actuales")
+    st.caption(f"Planta: {num(sim.GENERACION_MENSUAL_KWH)} kWh/mes")
 
 contrib = sim.CONTRIBUCION if contribuye else 0.0
 
@@ -437,7 +437,8 @@ st.title("Ahorra en tu factura con WE Power")
 #  Va como texto y no como st.subheader: no es una seccion de la pagina, es
 #  la segunda linea del titulo, y con el estilo de seccion se leia como si
 #  empezara un bloque nuevo.
-st.markdown("<div class='bajada'>sin instalar un solo panel.</div>",
+st.markdown("<div class='bajada'>sin invertir un solo peso "
+            "y sin instalar un solo panel.</div>",
             unsafe_allow_html=True)
 
 por_kwh = st.toggle("Prefiero escribir mi consumo en kWh",
@@ -571,7 +572,7 @@ st.dataframe(pd.DataFrame([
 ]), hide_index=True, width='stretch')
 
 st.caption(f"Recibirás **dos facturas**: la de tu comercializador, como siempre, "
-           f"y la de la comunidad. "
+           f"y la del club. "
            f"Tu comercializador te sigue facturando toda la energía; ese cobro "
            f"junta dos cosas: los {num(r['energia_red'])} kWh que no alcanzamos a "
            f"cubrir, al precio de siempre, y el cargo que te hace por los "
@@ -595,17 +596,13 @@ with k1:
     st.caption("Precio de la energía más el 20 % de contribución.")
 with k2:
     st.metric("Ese kWh con WE Power", cop(cv + cu_ce, 2))
-    st.caption("No paga contribución, y te lo vendemos más barato.")
+    st.caption("No paga contribución: es el valor del kWh del club más el "
+               "componente de comercialización.")
 with k3:
     st.metric("Te ahorras", cop(au["total"], 2),
               pct(au["descuento_efectivo"], 1) + " menos", delta_color="off")
     st.caption("En cada kWh que alcanzamos a cubrir.")
 
-st.caption(f"Tu factura no baja ese mismo {pct(au['descuento_efectivo'], 0)} porque "
-           f"el descuento aplica solo a los kWh que cubrimos, que son el "
-           f"{pct(r['cobertura'], 0)} de tu consumo: "
-           f"{pct(au['descuento_efectivo'], 0)} × {pct(r['cobertura'], 0)} = "
-           f"{pct(r['ahorro_pct'], 1)} de tu factura.")
 
 
 # =========================================================
@@ -688,10 +685,11 @@ for col, (titulo, texto) in zip(st.columns(3), PILARES):
 # BLOQUE 7 — CONFIANZA
 # =========================================================
 
+#  Cuantos miembros tiene hoy la comunidad no le dice nada al cliente y
+#  ademas es un dato que envejece. Fuera.
 st.markdown(
-    f"<div class='pie'><b>{sim.MIEMBROS_ACTUALES} miembros activos</b> &nbsp;·&nbsp; "
-    f"<b>{num(sim.GENERACION_ANUAL_KWH)} kWh/año</b> de generación &nbsp;·&nbsp; "
-    f"<b>100 % solar</b><br>"
+    f"<div class='pie'><b>{num(sim.GENERACION_ANUAL_KWH)} kWh/año</b> de "
+    f"generación &nbsp;·&nbsp; <b>100 % solar</b><br>"
     f"Amparado por las Resoluciones CREG 174 de 2021 y 101 072 de 2025.</div>",
     unsafe_allow_html=True)
 
@@ -705,10 +703,14 @@ proy = sim.proyectar(consumo, pde_actual, cu, cv, cu_ce, contrib, int(anios))
 
 with st.expander("Ver cómo crece tu ahorro con los años"):
 
+    #  Los dos supuestos de inflación son iguales (5 % y 5 %). Decir que la
+    #  red sube más rápido era falso: con el mismo IPC el ahorro sube en pesos
+    #  porque todo sube, pero su peso sobre la factura no se mueve.
     st.caption(f"Con el plan Estándar. La tarifa de red sube "
                f"{pct(sim.INFLACION_RED_ANUAL, 1)} al año y el precio de WE Power "
-               f"{pct(sim.INFLACION_CE_ANUAL, 1)}: como la red sube más rápido, "
-               f"la brecha se abre y tu ahorro crece.")
+               f"{pct(sim.INFLACION_CE_ANUAL, 1)}: como suben lo mismo, tu ahorro "
+               f"crece en pesos año tras año, pero sigue siendo el mismo "
+               f"porcentaje de tu factura.")
 
     st.dataframe(pd.DataFrame([{
         "Año":               p["anio"],
