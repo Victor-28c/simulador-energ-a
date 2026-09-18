@@ -3,6 +3,7 @@
 # =========================================================
 
 import os
+import re
 import datetime
 import importlib.util
 import pandas as pd
@@ -84,6 +85,47 @@ def millones(v):
 #  calculadora trabaja siempre con el que esté seleccionado.
 DESCUENTOS = ("10 %", "Otro")
 DESCUENTO_INICIAL = "10 %"
+
+
+# --- Hasta dónde puede llegar la proyección -------------------------------
+#  Diez años es lo máximo que cabe en la página de la proyección del informe.
+#  Con once la tabla se desborda y el PDF pasa de 8 a 9 páginas.
+ANIOS_MAXIMOS = 10
+
+
+# =========================================================
+# QUÉ SE PUEDE ESCRIBIR EN CADA CASILLA
+# =========================================================
+#  El teléfono solo admite dígitos; el nombre y la ciudad, solo letras.
+#  El correo y la dirección no se filtran: los dos llevan números y letras.
+#
+#  No sale ningún aviso de error: el carácter que no corresponde simplemente
+#  no se queda. Streamlit revisa el texto cuando la casilla pierde el foco o
+#  se pulsa Enter, así que el carácter alcanza a verse un instante y
+#  desaparece. Para que esto funcione, las casillas NO pueden ir dentro de un
+#  st.form: dentro de un formulario Streamlit no ejecuta estas revisiones
+#  hasta que se envía todo.
+
+#  Se admiten espacios y los signos que llevan los nombres de verdad:
+#  "S.A.S.", "O'Brien", "María-José". Lo que no entra son los números.
+NO_ES_LETRA = re.compile(r"[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ '.\-&]")
+NO_ES_DIGITO = re.compile(r"[^0-9]")
+
+
+def _filtrar(clave, patron):
+    """Borra de la casilla `clave` todo lo que sobre, sin decir nada."""
+    valor = st.session_state.get(clave, "")
+    limpio = patron.sub("", valor)
+    if limpio != valor:
+        st.session_state[clave] = limpio
+
+
+def solo_letras(clave):
+    _filtrar(clave, NO_ES_LETRA)
+
+
+def solo_digitos(clave):
+    _filtrar(clave, NO_ES_DIGITO)
 
 
 # --- Asesor comercial por defecto -----------------------------------------
@@ -418,8 +460,11 @@ with st.sidebar:
                    "de la contribución evitada. Escoge un descuento para la "
                    "oferta real.")
 
+    #  El tope no es un capricho: con más de ANIOS_MAXIMOS la tabla de la
+    #  proyección se pasa de la página 4 del informe y el PDF sale con una
+    #  página extra medio vacía. Está medido, no estimado.
     anios = st.number_input("Período de proyección (años)",
-                            min_value=1, max_value=25, value=5, step=1,
+                            min_value=1, max_value=ANIOS_MAXIMOS, value=5, step=1,
                             help=AYUDA["anios"])
 
     st.divider()
@@ -770,20 +815,31 @@ st.subheader("¿Quieres llevarte este cálculo?")
 st.caption("Completa los datos y te generamos el informe en PDF, con tus números "
            "y la información de WE Power.")
 
-with st.form("datos_informe"):
-    #  Los placeholders son genéricos a propósito: un nombre de ejemplo se
-    #  confunde con un dato ya escrito.
+#  Las casillas van sueltas y no dentro de un st.form: es lo que permite que
+#  el filtro de escritura actúe mientras se llena, y no solo al enviar.
+#  Los placeholders son genéricos a propósito: un nombre de ejemplo se
+#  confunde con un dato ya escrito.
+with st.container(border=True):
     f1, f2 = st.columns(2)
     with f1:
-        nombre = st.text_input("Nombre completo", placeholder="Nombre y apellido")
-        telefono = st.text_input("Teléfono", placeholder="0000000000")
-        ciudad = st.text_input("Ciudad", placeholder="Ciudad")
+        nombre = st.text_input("Nombre completo", placeholder="Nombre y apellido",
+                               key="f_nombre",
+                               on_change=solo_letras, args=("f_nombre",))
+        telefono = st.text_input("Teléfono", placeholder="0000000000",
+                                 key="f_telefono",
+                                 on_change=solo_digitos, args=("f_telefono",))
+        ciudad = st.text_input("Ciudad", placeholder="Ciudad",
+                               key="f_ciudad",
+                               on_change=solo_letras, args=("f_ciudad",))
     with f2:
-        direccion = st.text_input("Dirección", placeholder="Dirección del predio")
+        direccion = st.text_input("Dirección", placeholder="Dirección del predio",
+                                  key="f_direccion")
         correo = st.text_input("Correo electrónico",
                                placeholder="nombre@empresa.com",
+                               key="f_correo",
                                help="A este correo te llega la oferta.")
-        fecha = st.date_input("Fecha del informe", value=datetime.date.today())
+        fecha = st.date_input("Fecha del informe", value=datetime.date.today(),
+                              key="f_fecha")
 
     #  Los datos del asesor NO se editan aquí: son de WE Power, no del cliente.
     #  Se cambian en las constantes ASESOR_* del principio de este archivo.
@@ -793,7 +849,7 @@ with st.form("datos_informe"):
                "contactarte sobre esta cotización.  *(texto provisional: falta "
                "redactar la autorización de tratamiento de datos)*")
 
-    generar = st.form_submit_button("Generar informe", type="primary")
+    generar = st.button("Generar informe", type="primary")
 
 #  El PDF se guarda en session_state: al hacer clic en "Descargar" Streamlit
 #  vuelve a correr la página entera, y sin esto el botón desaparecería.
