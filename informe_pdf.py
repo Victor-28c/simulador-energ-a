@@ -176,6 +176,35 @@ tr.total td {{ font-weight: bold; color: {AZUL}; border-top: 1.5px solid {AZUL};
 .paso .n {{ color: {NARANJA}; font-weight: bold; font-size: 8.5pt; }}
 
 .barra {{ background: #E4E9F0; border-radius: 1mm; height: 5mm; margin: 1.5mm 0; }}
+
+/* --- Las dos barras del kWh ---
+   El ancho de cada bloque es proporcional a su valor, así que la comparación
+   se entiende sin leer un número: la barra gris de arriba es el kWh de la red
+   y la de abajo, del mismo largo, se parte en la energía del club, el cargo de
+   comercialización y el hueco, que es el ahorro. */
+.kbarras {{ margin-top: 2mm; }}
+.kfila {{ display: flex; align-items: center; margin-bottom: 2.5mm; }}
+.kfila .ket {{ width: 32mm; text-align: right; padding-right: 3mm;
+               font-size: 8pt; color: {GRIS}; line-height: 1.25; }}
+.kpista {{ flex: 1; height: 9mm; background: {GRIS_CLARO}; border-radius: 1.5mm;
+           display: flex; overflow: hidden; }}
+.kseg {{ display: flex; align-items: center; padding: 0 2.5mm; color: #fff;
+         font-weight: 700; font-size: 9.5pt; white-space: nowrap; }}
+.kred {{ background: {GRIS}; }}
+.kclub {{ background: {AZUL}; }}
+.kcom {{ background: #93A7C4; font-size: 8pt; padding: 0 1.5mm; }}
+.khueco {{ flex: 1; display: flex; align-items: center; padding: 0 2.5mm;
+           color: {NARANJA_TEXTO}; font-weight: 700; font-size: 9pt;
+           white-space: nowrap; }}
+.kleyenda {{ font-size: 7.5pt; color: {GRIS}; margin-top: 1mm; }}
+
+/* El remate: la cifra del ahorro, sola y grande. */
+.kremate {{ margin-top: 4mm; background: #FBF3E4; border: 1px solid #EAD9BA;
+            border-radius: 2mm; padding: 4mm 6mm; display: flex;
+            align-items: center; justify-content: center; gap: 5mm; }}
+.kremate .kcifra {{ font-size: 26pt; font-weight: 700; color: {NARANJA_TEXTO};
+                    line-height: 1; letter-spacing: -.5pt; white-space: nowrap; }}
+.kremate .ktxt {{ font-size: 11pt; color: {AZUL_OSCURO}; line-height: 1.3; }}
 .barra div {{ background: {AZUL}; height: 5mm; border-radius: 1mm; }}
 
 ul {{ margin: 0 0 2mm 0; padding-left: 4.5mm; }}
@@ -266,9 +295,58 @@ def _crono():
 def _cab(titulo, logo):
     # Si falta el archivo del logo, va el nombre en texto: el encabezado
     # no queda cojo y el informe se puede emitir igual.
+    #  El texto de respaldo va en blanco: la banda del encabezado es azul, así
+    #  que un texto azul sería invisible. Y dice We Club, que es la marca con
+    #  la que se le habla al cliente.
     marca = ('<img src="' + logo + '">') if logo else (
-        '<b style="color:' + AZUL + '; font-size:11pt">WE POWER</b>')
+        '<b style="color:#fff; font-size:11pt">WE CLUB</b>')
     return '<div class="cab">' + marca + '<div class="t">' + titulo + '</div></div>'
+
+
+def _barras_kwh(d):
+    """Las dos barras del kWh, a escala, más el remate con el ahorro.
+
+    Todo sale de los mismos números que ya calculó el modelo. El 100 % de la
+    escala es el kWh de la red, que siempre es el más caro de los dos (si no
+    lo fuera no habría ahorro, y la página ni siquiera llega hasta aquí).
+    """
+    base = d["costo_red_kwh"]
+    pc_club = d["cu_ce"] / base * 100
+    pc_com = d["cv"] / base * 100
+    pc_hueco = 100 - pc_club - pc_com
+
+    #  Con el hueco muy angosto el rótulo no cabe y sale cortado. En ese caso
+    #  se calla: la cifra grande de abajo ya lo dice, y más grande.
+    rotulo = cop(d["ahorro_kwh"], 2) if pc_hueco >= 14 else ""
+    #  Lo mismo con el cargo de comercialización, que es el bloque más angosto.
+    com = cop(d["cv"], 2) if pc_com >= 11 else ""
+
+    return f"""
+  <div class="kbarras">
+    <div class="kfila">
+      <div class="ket">Hoy, comprado<br>a la red</div>
+      <div class="kpista">
+        <div class="kseg kred" style="width:100%">{cop(base, 2)}</div>
+      </div>
+    </div>
+    <div class="kfila">
+      <div class="ket">Con We Club</div>
+      <div class="kpista">
+        <div class="kseg kclub" style="width:{pc_club:.2f}%">{cop(d['cu_ce'], 2)}</div>
+        <div class="kseg kcom" style="width:{pc_com:.2f}%">{com}</div>
+        <div class="khueco">{rotulo}</div>
+      </div>
+    </div>
+    <div class="kleyenda">
+      <b style="color:{AZUL}">&#9632;</b> energía de We Club &nbsp;·&nbsp;
+      <b style="color:#93A7C4">&#9632;</b> comercialización, que su comercializador
+      le sigue cobrando &nbsp;·&nbsp; el espacio en blanco es lo que usted deja de pagar
+    </div>
+    <div class="kremate">
+      <div class="kcifra">{cop(d['ahorro_kwh'], 2)}</div>
+      <div class="ktxt">menos por cada kWh<br>que le cubrimos</div>
+    </div>
+  </div>"""
 
 
 def _supuesto_inflacion(d):
@@ -486,24 +564,7 @@ def construir_html(d):
   energía correspondiente y con las tarifas que aplica cada uno.</p>
 
   <h3 style="margin-top:6mm">Por cada kWh que le cubrimos</h3>
-  <div class="cols">
-    <div class="col caja" style="text-align:center">
-      <div class="chico gris">ESE kWh EN LA RED</div>
-      <div style="font-size:14pt; font-weight:bold">{cop(d['costo_red_kwh'],2)}</div>
-      <div class="chico gris">energía + 20 % de contribución</div>
-    </div>
-    <div class="col caja" style="text-align:center">
-      <div class="chico gris">ESE kWh CON WE CLUB</div>
-      <div style="font-size:14pt; font-weight:bold">{cop(d['costo_ce_kwh'],2)}</div>
-      <div class="chico gris">no paga contribución: kWh del club
-        ({cop(d['cu_ce'],2)}) + comercialización ({cop(d['cv'],2)})</div>
-    </div>
-    <div class="col caja" style="text-align:center; background:{AZUL}; color:#fff">
-      <div class="chico" style="opacity:.85">SE AHORRA</div>
-      <div style="font-size:14pt; font-weight:bold; color:{NARANJA}">{cop(d['ahorro_kwh'],2)}</div>
-      <div class="chico" style="opacity:.85">{pct(d['descuento'],0)} menos</div>
-    </div>
-  </div>
+  {_barras_kwh(d)}
 
 </div>
 
