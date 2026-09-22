@@ -236,7 +236,7 @@ AYUDA = {
         "Toda tu energía sigue llegando por la red. Lo que cambia es el precio: "
         "los kWh que cubrimos salen de tu consumo facturado, así que no pagan "
         "contribución, y sobre ellos solo pagas el cargo del comercializador "
-        "más el precio acordado con WE Power.",
+        "más el precio acordado con We Club.",
 
     "basico":
         "El ahorro mínimo que podrías recibir.",
@@ -407,6 +407,32 @@ hr { border-top: 1px solid #E3EAF4 !important; }
 /* Imita el st.caption, pero admite HTML: lo necesitamos para el <abbr>. */
 .nota      { font-size: .875rem; color: rgba(49,51,63,.6); margin-top: -.5rem; }
 .nota abbr { text-decoration: underline dotted; cursor: help; }
+
+/* ---------- Las dos barras del kWh ----------
+   El ancho de cada bloque es proporcional a su valor, así que la comparación
+   entra por los ojos sin leer un número. Es la misma figura del informe. */
+.kfila { display: flex; align-items: center; margin-bottom: .55rem; }
+.kfila .ket { width: 9.5rem; text-align: right; padding-right: .8rem;
+              font-size: .82rem; color: GRIS; line-height: 1.25; }
+.kpista { flex: 1; height: 2.9rem; background: GRIS_CLARO; border-radius: .45rem;
+          display: flex; overflow: hidden; }
+.kseg { display: flex; align-items: center; padding: 0 .75rem; color: #fff;
+        font-weight: 700; font-size: .95rem; white-space: nowrap; }
+.kred { background: GRIS; }
+.kclub { background: AZUL; }
+.kcom { background: #93A7C4; font-size: .78rem; padding: 0 .4rem; }
+.khueco { flex: 1; display: flex; align-items: center; padding: 0 .75rem;
+          color: NARANJA_TEXTO; font-weight: 700; font-size: .88rem;
+          white-space: nowrap; }
+.kleyenda { font-size: .78rem; color: GRIS; margin-top: .35rem; }
+
+/* El remate: la cifra del ahorro, sola y grande. */
+.kremate { margin-top: 1rem; background: #FBF3E4; border: 1px solid #EAD9BA;
+           border-radius: .7rem; padding: 1.1rem 1.5rem; display: flex;
+           align-items: center; justify-content: center; gap: 1.3rem; }
+.kremate .kcifra { font-size: 2.6rem; font-weight: 700; color: NARANJA_TEXTO;
+                   line-height: 1; letter-spacing: -.02em; white-space: nowrap; }
+.kremate .ktxt { font-size: 1.05rem; color: AZUL_OSCURO; line-height: 1.3; }
 
 /* ---------- Los tres pilares, como tarjetas ---------- */
 .pilar-caja {
@@ -660,12 +686,15 @@ st.dataframe(pd.DataFrame([
     {"Concepto": "TOTAL, ENTRE LAS DOS FACTURAS", "Valor": cop(r["factura_con"])},
 ]), hide_index=True, width='stretch')
 
-st.caption(f"Recibirás **dos facturas**: la de tu comercializador, como siempre, "
-           f"y la del club. "
-           f"Tu comercializador te sigue facturando toda la energía; ese cobro "
-           f"junta dos cosas: los {num(r['energia_red'])} kWh que no alcanzamos a "
-           f"cubrir, al precio de siempre, y el cargo que te hace por los "
-           f"{num(r['exc1'])} kWh que sí cubrimos.")
+#  Decir que "el comercializador te sigue facturando toda la energía" no es
+#  cierto —el club factura una parte— y así lo marcaron en la revisión. Esta
+#  es la redacción que pidió Carlos, la misma que quedó en el informe.
+st.caption(f"Recibirás **dos facturas**: la de tu proveedor actual y la de la "
+           f"Comunidad We Club, cada una por la cantidad de energía "
+           f"correspondiente y con las tarifas que aplica cada uno. Tu "
+           f"comercializador te cobra los {num(r['energia_red'])} kWh que no "
+           f"alcanzamos a cubrir, al precio de siempre, más la comercialización "
+           f"de los {num(r['exc1'])} kWh que sí cubrimos.")
 
 st.caption(esc(f"Antes: {cop(r['factura_sin'])}.  Ahora: {cop(r['factura_con'])}.  "
                f"Te quedan {cop(r['ahorro_mes'])} en el bolsillo cada mes, "
@@ -679,18 +708,43 @@ st.caption(esc(f"Antes: {cop(r['factura_sin'])}.  Ahora: {cop(r['factura_con'])}
 st.divider()
 st.subheader("Por cada kWh que te cubrimos")
 
-k1, k2, k3 = st.columns(3)
-with k1:
-    st.metric("Ese kWh en la red", cop(au["costo_red"], 2), help=AYUDA["kwh"])
-    st.caption("Precio de la energía más el 20 % de contribución.")
-with k2:
-    st.metric("Ese kWh con WE Power", cop(cv + cu_ce, 2))
-    st.caption("No paga contribución: es el valor del kWh del club más el "
-               "componente de comercialización.")
-with k3:
-    st.metric("Te ahorras", cop(au["total"], 2),
-              pct(au["descuento_efectivo"], 1) + " menos", delta_color="off")
-    st.caption("En cada kWh que alcanzamos a cubrir.")
+#  El 100 % de la escala es el kWh de la red, que siempre es el más caro:
+#  si no lo fuera no habría ahorro y la página se habría detenido más arriba.
+_base = au["costo_red"]
+_pc_club = cu_ce / _base * 100
+_pc_com = cv / _base * 100
+_pc_hueco = 100 - _pc_club - _pc_com
+
+#  Con el hueco muy angosto el rótulo saldría cortado. Ahí se calla: la cifra
+#  grande de abajo ya lo dice, y más grande.
+_rotulo = cop(au["total"], 2) if _pc_hueco >= 14 else ""
+_com = cop(cv, 2) if _pc_com >= 11 else ""
+
+st.markdown(f"""
+<div class="kfila">
+  <div class="ket">Hoy, comprado<br>a la red</div>
+  <div class="kpista"><div class="kseg kred" style="width:100%">{cop(_base, 2)}</div></div>
+</div>
+<div class="kfila">
+  <div class="ket">Con We Club</div>
+  <div class="kpista">
+    <div class="kseg kclub" style="width:{_pc_club:.2f}%">{cop(cu_ce, 2)}</div>
+    <div class="kseg kcom" style="width:{_pc_com:.2f}%">{_com}</div>
+    <div class="khueco">{_rotulo}</div>
+  </div>
+</div>
+<div class="kleyenda">
+  <b style="color:{AZUL}">&#9632;</b> energía de We Club &nbsp;·&nbsp;
+  <b style="color:#93A7C4">&#9632;</b> comercialización, que tu comercializador te
+  sigue cobrando &nbsp;·&nbsp; el espacio en blanco es lo que dejas de pagar
+</div>
+<div class="kremate">
+  <div class="kcifra">{cop(au["total"], 2)}</div>
+  <div class="ktxt">menos por cada kWh<br>que te cubrimos</div>
+</div>
+""".replace(chr(10), ""), unsafe_allow_html=True)
+
+st.caption(AYUDA["kwh"])
 
 
 
