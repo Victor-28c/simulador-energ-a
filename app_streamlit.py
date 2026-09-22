@@ -222,7 +222,7 @@ AYUDA = {
 
     "ahorro":
         "Lo que dejarías de pagar cada mes con el plan Estándar. Es tu factura "
-        "de hoy menos lo que pagarías con WE Power.",
+        "de hoy menos lo que pagarías con We Club.",
 
     "antes":
         "Lo que pagas hoy: todo tu consumo comprado a la red, con la "
@@ -230,7 +230,7 @@ AYUDA = {
 
     "despues":
         "Tu nueva factura: lo que tu comercializador te sigue cobrando por la "
-        "energía, más lo que le pagas a WE Power por la parte que cubrimos.",
+        "energía, más lo que le pagas a We Club por la parte que cubrimos.",
 
     "kwh":
         "Toda tu energía sigue llegando por la red. Lo que cambia es el precio: "
@@ -281,7 +281,7 @@ AYUDA = {
 # LA PÁGINA
 # =========================================================
 
-st.set_page_config(page_title="WE Power · Ahorra en tu factura",
+st.set_page_config(page_title="We Club · Ahorra en tu factura",
                    page_icon="⚡", layout="centered")
 
 ESTILOS = """
@@ -481,7 +481,7 @@ st.markdown(
 
 with st.sidebar:
     st.header("Ajustar supuestos")
-    st.caption("Vienen con los valores de WE Power. Solo tócalos si sabes lo "
+    st.caption("Vienen con los valores de We Club. Solo tócalos si sabes lo "
                "que estás cambiando.")
 
     cu = st.number_input("Costo unitario CU (COP/kWh)",
@@ -548,7 +548,7 @@ contrib = sim.CONTRIBUCION if contribuye else 0.0
 # BLOQUE 1 — HERO
 # =========================================================
 
-st.title("Ahorra en tu factura con WE Power")
+st.title("Ahorra en tu factura con We Club")
 #  Va como texto y no como st.subheader: no es una seccion de la pagina, es
 #  la segunda linea del titulo, y con el estilo de seccion se leia como si
 #  empezara un bloque nuevo.
@@ -636,6 +636,10 @@ with c1:
 with c2:
     st.metric("De tu factura", pct(r["ahorro_pct"], 1),
               help="Cuánto baja tu factura en porcentaje.")
+    #  En la revisión dijeron que este porcentaje no se entendía de dónde
+    #  salía. Es el descuento por kWh aplicado solo sobre la parte cubierta.
+    st.caption(f"Es el {pct(au['descuento_efectivo'], 0)} de descuento aplicado "
+               f"sobre el {pct(r['cobertura'], 1)} de tu consumo que cubrimos.")
 
 st.progress(min(1.0, r["cobertura"]))
 st.markdown(
@@ -681,7 +685,7 @@ pago_comercializador = r["pago_red"] + r["cargo_cv"]
 st.dataframe(pd.DataFrame([
     {"Concepto": "Lo que le sigues pagando a tu comercializador",
      "Valor": cop(pago_comercializador)},
-    {"Concepto": "Lo que le pagas a WE Power",
+    {"Concepto": "Lo que le pagas a We Club",
      "Valor": cop(r["pago_ce"])},
     {"Concepto": "TOTAL, ENTRE LAS DOS FACTURAS", "Valor": cop(r["factura_con"])},
 ]), hide_index=True, width='stretch')
@@ -814,7 +818,7 @@ PILARES = [
      "el 20 % de contribución."),
     ("📄 Tu factura de siempre",
      "El comercializador te descuenta la energía que pusimos nosotros. No "
-     "cambias de operador."),
+     "cambias de comercializador."),
 ]
 
 for col, (titulo, texto) in zip(st.columns(3), PILARES):
@@ -859,7 +863,7 @@ with st.expander("Ver cómo crece tu ahorro con los años"):
         efecto = ("como el precio de la comunidad sube más rápido que la red, "
                   "la brecha se cierra y tu ahorro pierde terreno con los años")
     st.caption(f"Con el plan Estándar. La tarifa de red sube "
-               f"{pct(sim.INFLACION_RED_ANUAL, 1)} al año y el precio de WE Power "
+               f"{pct(sim.INFLACION_RED_ANUAL, 1)} al año y el precio de We Club "
                f"{pct(sim.INFLACION_CE_ANUAL, 1)}: {efecto}.")
 
     st.dataframe(pd.DataFrame([{
@@ -872,7 +876,6 @@ with st.expander("Ver cómo crece tu ahorro con los años"):
     st.line_chart(pd.DataFrame({"Ahorro acumulado": [p["acumulado"] for p in proy]},
                                index=[f"Año {p['anio']}" for p in proy]))
 
-    st.caption("El acumulado son pesos corrientes, sin traer a valor presente.")
 
 # =========================================================
 # BLOQUE 9 — DATOS PARA IMPRIMIR EL INFORME   [ BORRADOR ]
@@ -918,7 +921,7 @@ if informe_pdf is None:
 
 st.subheader("¿Quieres llevarte este cálculo?")
 st.caption("Completa los datos y te generamos el informe en PDF, con tus números "
-           "y la información de WE Power.")
+           "y la información de We Club.")
 
 #  Las casillas van sueltas y no dentro de un st.form: es lo que permite que
 #  el filtro de escritura actúe mientras se llena, y no solo al enviar.
@@ -962,6 +965,9 @@ with st.container(border=True):
     #  Se cambian en las constantes ASESOR_* del principio de este archivo.
     st.caption(f"Tu asesor: **{ASESOR_NOMBRE}** · {ASESOR_TEL} · {ASESOR_MAIL}")
 
+    #  Aquí NO se cambia "WE Power" por "We Club". El responsable del
+    #  tratamiento de datos es la empresa, no la marca comercial: el aviso de
+    #  habeas data (Ley 1581 de 2012) tiene que nombrar a quien responde.
     st.caption("Al continuar autorizas a WE Power a usar estos datos para "
                "contactarte sobre esta cotización.  *(texto provisional: falta "
                "redactar la autorización de tratamiento de datos)*")
