@@ -24,10 +24,11 @@ AZUL_OSCURO = "#00305F"
 NARANJA = "#E2A03C"
 NARANJA_TEXTO = "#C07B14"   # el del logo aclara demasiado sobre blanco
 
-#  PENDIENTE: el vehículo que estructura el proyecto y administra la
-#  comunidad es una SPV con nombre propio, no "WE POWER". Mientras no se
-#  confirme, sale marcado para que nadie lo pase por alto.
-NOMBRE_SPV = "[nombre de la SPV — por confirmar]"
+#  Quién estructura el proyecto y administra la comunidad. Maira anotó "iría
+#  el nombre de la SPV" y Ricardo escribió al lado "We Club", que es lo que
+#  quedó. Si la SPV termina teniendo una razón social distinta que deba salir
+#  en la oferta, se cambia aquí y en ningún otro sitio.
+NOMBRE_SPV = "We Club"
 GRIS = "#5A6472"
 GRIS_CLARO = "#EEF1F6"
 
@@ -65,7 +66,7 @@ CSS = f"""
     size: A4;
     margin: 16mm 14mm 14mm 14mm;
     @bottom-center {{
-        content: "WE CLUB · Comunidades energéticas de WE POWER          " counter(page) " / " counter(pages);
+        content: "WE CLUB · Comunidades energéticas          " counter(page) " / " counter(pages);
         font-size: 7.5pt; color: {GRIS};
     }}
 }}
@@ -204,7 +205,7 @@ li {{ margin-bottom: 1.5mm; }}
 #  a sus semanas, así el dibujo no miente: el tramo de 10 semanas se ve cinco
 #  veces más largo que el de 2.
 ETAPAS = [
-    ("Estudio de su consumo", 2, "Usted facilita la factura"),
+    ("Estudio de su consumo", 2, "Usted facilita la copia"),
     ("Firma de la afiliación", 2, "Usted firma"),
     ("Medidor y trámites", 10, "Lo gestiona We Club"),
     ("Puesta en marcha", 2, "Lo gestiona We Club"),
@@ -268,6 +269,27 @@ def _cab(titulo, logo):
     marca = ('<img src="' + logo + '">') if logo else (
         '<b style="color:' + AZUL + '; font-size:11pt">WE POWER</b>')
     return '<div class="cab">' + marca + '<div class="t">' + titulo + '</div></div>'
+
+
+def _supuesto_inflacion(d):
+    """El renglón de la inflación, redactado según los valores que haya.
+
+    Los dos porcentajes viven en simulador_ce.py y se pueden cambiar. Si el
+    texto dijera "suben lo mismo" a secas, el día que alguien los ponga
+    distintos el informe estaría mintiendo. Así la frase sigue al dato.
+    """
+    red, ce = d["infl_red"], d["infl_ce"]
+    if abs(red - ce) < 1e-9:
+        return ("La tarifa de la red y el precio de We Club suben lo mismo cada "
+                "año: <b>" + pct(red, 0) + "</b>.")
+    return ("La tarifa de la red sube <b>" + pct(red, 0) + "</b> al año y el "
+            "precio de We Club <b>" + pct(ce, 0) + "</b>.")
+
+
+def _nombrar_comercializador(d):
+    """«Su comercializador EPM» si se escogió; «Su comercializador» si no."""
+    nombre = d.get("comercializador") or ""
+    return "Su comercializador <b>" + nombre + "</b>" if nombre else "Su comercializador"
 
 
 def construir_html(d):
@@ -400,24 +422,25 @@ def construir_html(d):
         <p style="margin:0"><b>{num(d['asignada'])} kWh al mes</b> generados en nuestras granjas solares</p>
         <div class="barra"><div style="width:{min(100, d['cobertura']*100):.0f}%"></div></div>
         <p class="chico gris" style="margin:0">Equivale aproximadamente al
-          <b>{pct(d['cobertura'],0)}</b> de su consumo. Su energía sigue llegando
-          por la red de siempre: lo que cambia es el precio de esa parte.</p>
+          <b>{pct(d['cobertura'],0)}</b> de su consumo, y es sobre esa parte que
+          le aplicamos el descuento. Su energía sigue llegando por la red de
+          siempre: lo que cambia es el precio de esos kWh.</p>
       </div>
     </div>
   </div>
 
   <div class="caja" style="margin-top:5mm">
     <h3 style="margin-top:0">Cómo se calcula</h3>
-    <p style="margin:0 0 3mm 0">Cubrimos {num(d['asignada'])} kWh al mes a un costo de
-    <b>{cop(d['costo_ce_kwh'],2)}</b> por kWh, frente a los <b>{cop(d['costo_red_kwh'],2)}</b>
-    que le cuesta hoy cada kWh de la red con contribución incluida.
-    Son <b>{cop(d['ahorro_kwh'],2)}</b> menos por cada kWh cubierto.</p>
+    <p style="margin:0 0 3mm 0">Hoy cada kWh de la red le cuesta
+    <b>{cop(d['costo_red_kwh'],2)}</b>, con la contribución incluida. Nosotros le
+    vendemos esa energía a <b>{cop(d['cu_ce'],2)}</b> por kWh:
+    <b>{cop(d['costo_red_kwh'] - d['cu_ce'],2)}</b> menos por cada kWh.</p>
+    <p style="margin:0 0 3mm 0">Sobre esos mismos kWh su comercializador le sigue
+    cobrando el costo de comercialización, <b>{cop(d['cv'],2)}</b> por kWh. Sumando
+    las dos cosas, cada kWh que le cubrimos le queda en
+    <b>{cop(d['costo_ce_kwh'],2)}</b>, y su ahorro real es de
+    <b>{cop(d['ahorro_kwh'],2)}</b> por kWh.</p>
     <div class="sello">{pct(d['descuento'],0)} de descuento por cada kWh que le cubrimos</div>
-    <p class="chico gris" style="margin:3mm 0 0 0">
-      Su comercializador le sigue cobrando el costo de comercialización de
-      <b>{cop(d['cv'],2)}</b> por cada kWh que le cubrimos; nosotros le vendemos
-      esa energía a <b>{cop(d['cu_ce'],2)}</b> por kWh. La suma de los dos es el
-      valor de <b>{cop(d['costo_ce_kwh'],2)}</b> que aparece arriba.</p>
     <p class="chico gris" style="margin:2mm 0 0 0">
       Las tarifas de energía se indexan periódicamente. Las cifras de esta oferta
       se calculan con las tarifas vigentes a la fecha y se actualizan con las
@@ -505,13 +528,11 @@ def construir_html(d):
   <div class="caja" style="margin-top:5mm">
     <h3 style="margin-top:0">Supuestos de la proyección</h3>
     <ul>
-      <li>La tarifa de la red y el precio de We Club suben lo mismo cada año:
-        <b>{pct(d['infl_red'],0)}</b>. Es un supuesto de trabajo y se ajusta con
+      <li>{_supuesto_inflacion(d)} Es un supuesto de trabajo y se ajusta con
         las indexaciones que rijan en cada período.</li>
       <li>Su consumo se mantiene. Si su consumo cambia, su ahorro cambia con él.</li>
       <li>Su participación en la comunidad se mantiene. Si se ajusta, el ahorro
         se recalcula sobre la nueva participación.</li>
-      <li>Los valores están en pesos corrientes, sin traer a valor presente.</li>
     </ul>
   </div>
   <p class="nota">Las cifras son estimadas y dependen de su consumo real, de la
@@ -528,7 +549,7 @@ def construir_html(d):
     <div class="col caja">
       <h3 style="margin-top:0">Lo que NO cambia</h3>
       <ul>
-        <li>Su comercializador sigue siendo el mismo.</li>
+        <li>{_nombrar_comercializador(d)} sigue siendo el mismo.</li>
         <li>La continuidad del servicio: si la granja no genera, su comercializador
           lo sigue atendiendo.</li>
         <li>Su empresa no pone capital ni compra equipos.</li>
@@ -550,24 +571,29 @@ def construir_html(d):
   <h3 style="margin-top:6mm">Quién es quién</h3>
   <table>
     <tr><td style="width:34%"><b>Granja solar</b></td>
-        <td>Genera la energía solar del proyecto de generación distribuida.</td></tr>
+        <td>Genera la energía solar de la que provendrá la parte de su consumo
+            que le cubrimos.</td></tr>
     <tr><td><b>Comunidad energética</b></td>
         <td>Agrupa a los usuarios, fija las reglas y asigna la energía entre ellos.</td></tr>
-    <tr><td><b>Comercializador habilitado</b></td>
-        <td>Compra, vende y factura la energía ante el mercado eléctrico.</td></tr>
+    <tr><td><b>Su comercializador</b></td>
+        <td>Compra, vende y factura la energía ante el mercado eléctrico. Sigue
+            siendo el mismo de siempre.</td></tr>
+    <tr><td><b>We Club</b></td>
+        <td>Administra la comunidad, hace los trámites y traslada los beneficios
+            a sus miembros.</td></tr>
     <tr><td><b>Su empresa</b></td>
         <td>Consume y paga. Delega en We Club la gestión y los trámites.</td></tr>
   </table>
   <p class="nota">{NOMBRE_SPV} estructura el proyecto, administra la comunidad y
   traslada sus beneficios a los miembros. La venta de energía la hace un
-  comercializador habilitado. Operación amparada por las Resoluciones CREG 174
+  comercializador. Operación amparada por las Resoluciones CREG 174
   de 2021 y 101 072 de 2025.</p>
 </div>
 
 <!-- ============ 6. CÓMO SE AFILIA ============ -->
 <div class="pagina">
   {_cab("Cómo se afilia", logo)}
-  <h2>Cómo se afilia: cuatro pasos</h2>
+  <h2>Cómo se afilia: cinco pasos</h2>
   <p class="gris">Firmar la afiliación no tiene costo para su empresa.</p>
 
   <div class="paso"><div class="n">PASO 1 · HOY</div>
@@ -579,6 +605,9 @@ def construir_html(d):
     <b>Firma su afiliación.</b> Nos autoriza a hacer los trámites y a vincularlo a la comunidad.</div>
   <div class="paso"><div class="n">PASO 4 · AL CREAR LA COMUNIDAD</div>
     <b>Queda vinculado.</b> Le informamos su comunidad asignada y le entregamos copia del acuerdo.</div>
+  <div class="paso"><div class="n">PASO 5 · DESDE ENTONCES</div>
+    <b>Empieza a disfrutar del ahorro.</b> We Club se encarga de todos los
+    trámites y de administrar la comunidad. Usted, de ahorrar.</div>
 
   <h3 style="margin-top:6mm">Del primer contacto al primer ahorro: 16 semanas</h3>
   {_crono()}
@@ -596,8 +625,8 @@ def construir_html(d):
   <table>
     <tr><th style="width:38%">Duda</th><th>Respuesta</th></tr>
     <tr><td><b>¿Y si la granja genera menos de lo proyectado?</b></td>
-        <td>Su suministro no se interrumpe: la energía faltante se la sigue
-            entregando su comercializador, al precio de siempre.</td></tr>
+        <td>Sigue recibiendo la energía de su proveedor actual, sin ningún
+            cambio y al precio de siempre.</td></tr>
     <tr><td><b>¿Y si mi consumo resulta menor al proyectado?</b></td>
         <td>Su ahorro baja en proporción, porque se calcula sobre la energía
             que efectivamente se le cubre. El plan se revisa en el acuerdo.</td></tr>
@@ -606,19 +635,22 @@ def construir_html(d):
             usted no paga nada.</td></tr>
     <tr><td><b>¿Y si cambia la regulación?</b></td>
         <td>La estructura se ajusta o se termina, sin penalidad para usted.</td></tr>
-    <tr><td><b>¿Quién me va a facturar?</b></td>
-        <td>Se define quién factura y cuántas facturas recibe antes de que
-            usted firme.</td></tr>
-    <tr><td><b>¿Cómo hago para tener energía si la red falla?</b></td>
+    <tr><td><b>Si se va la luz por una falla o un mantenimiento de la red,
+            ¿me sigue llegando la energía solar?</b></td>
+        <td>No. Toda la energía, la solar incluida, le llega por la misma red.
+            Si la red se cae, no llega ninguna. Pertenecer a la comunidad le
+            cambia el precio de su energía, no la forma en que le llega.</td></tr>
+    <tr><td><b>¿Y cómo hago para no quedarme sin energía?</b></td>
         <td>Podemos instalarle baterías, con un costo aparte, para que no se
-            quede sin energía.</td></tr>
+            quede sin servicio cuando la red falle.</td></tr>
   </table>
 
   <div class="caja" style="margin-top:6mm">
-    <h3 style="margin-top:0">Qué firma: su afiliación a We Club</h3>
-    <p>Un mandato que nos permite hacer los trámites en su nombre: firmar por
-    usted los documentos de vinculación a la comunidad energética y el contrato
-    de suministro.</p>
+    <h3 style="margin-top:0">Afiliación muy sencilla: usted firma la
+      vinculación y nosotros nos encargamos de todo</h3>
+    <p>Firma un acuerdo de mandato que nos permite hacer los trámites en su
+    nombre: firmar por usted los documentos de vinculación a la comunidad
+    energética y el contrato de suministro.</p>
     <p style="margin:0"><b>¿Cuánto cuesta firmar?</b> Nada. Usted solo empieza a
     pagar cuando la comunidad energética entre en operación.</p>
   </div>
@@ -705,6 +737,9 @@ def armar_datos(form, sim, r, au, proyeccion, consumo, cu, cv, cu_ce):
         "direccion": form.get("direccion") or "—",
         "ciudad":    form.get("ciudad") or "—",
         "correo":    form.get("correo") or "",
+        #  Si no se escogió comercializador, el informe dice "su comercializador"
+        #  a secas. Nunca sale un hueco ni un guion en medio de una frase.
+        "comercializador": (form.get("comercializador") or "").strip(),
         "fecha":     form.get("fecha") or datetime.date.today().strftime("%d/%m/%Y"),
         "asesor_nombre": form.get("asesor_nombre") or "—",
         "asesor_tel":    form.get("asesor_tel") or "—",
