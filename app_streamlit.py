@@ -128,6 +128,50 @@ def solo_digitos(clave):
     _filtrar(clave, NO_ES_DIGITO)
 
 
+# --- Comercializadores que se pueden escoger ------------------------------
+#  El cliente NO cambia de comercializador al entrar al club, así que el
+#  informe lo nombra. Es solo un texto: no entra en ningún cálculo.
+#
+#  La lista sale del Boletín Tarifario de Energía Eléctrica de la
+#  Superintendencia de Servicios Públicos (II trimestre de 2025), que agrupa a
+#  los comercializadores del país por tamaño, más los comercializadores puros
+#  que operan en el mercado no regulado. Se usa el nombre comercial, no el
+#  razón social, porque es el que reconoce el cliente.
+#
+#  Igual hay que revisarla con Comercial de vez en cuando: el sector se mueve
+#  (Electricaribe se partió en Air-e y Afinia, Codensa pasó a ser Enel). Está
+#  aquí, en un solo sitio, para editarla sin tocar nada más. Y por eso existe
+#  "Otro": ninguna lista los cubre a todos y no se puede dejar a un asesor
+#  bloqueado porque su cliente no aparece.
+COMERCIALIZADORES = [
+    # Grandes
+    "EPM",                      # Empresas Públicas de Medellín E.S.P.
+    "Enel Colombia",            # antes Codensa · Bogotá y Cundinamarca
+    "Celsia",                   # Celsia Colombia S.A. E.S.P.
+    "Air-e",                    # Air-e S.A.S. E.S.P. · Caribe Sol
+    "Afinia",                   # Caribemar de la Costa S.A.S. E.S.P. · Caribe Mar
+    "ESSA",                     # Electrificadora de Santander S.A. E.S.P.
+    "EMCALI",                   # Empresas Municipales de Cali E.S.P.
+    # Medianos
+    "EBSA",                     # Empresa de Energía de Boyacá S.A. E.S.P.
+    "CHEC",                     # Central Hidroeléctrica de Caldas S.A. E.S.P.
+    "CEDENAR",                  # Centrales Eléctricas de Nariño S.A. E.S.P.
+    "EDEQ",                     # Empresa de Energía del Quindío S.A. E.S.P.
+    "EMSA",                     # Electrificadora del Meta S.A. E.S.P.
+    "CENS",                     # Centrales Eléctricas de Norte de Santander S.A. E.S.P.
+    "Electrohuila",             # Electrificadora del Huila S.A. E.S.P.
+    # Comercializadores puros, frecuentes en el mercado no regulado
+    "Vatia",
+    "Enertotal",
+    "Enel X Colombia",
+    "Bia Energy",
+    "Enerbit",
+    "QI Energy",
+    "Ruitoque",
+    "Otro",
+]
+
+
 # --- Asesor comercial por defecto -----------------------------------------
 ASESOR_NOMBRE = "Ricardo Orozco"
 ASESOR_TEL = "3017877074"
@@ -748,14 +792,21 @@ proy = sim.proyectar(consumo, pde_actual, cu, cv, cu_ce, contrib, int(anios))
 
 with st.expander("Ver cómo crece tu ahorro con los años"):
 
-    #  Los dos supuestos de inflación son iguales (5 % y 5 %). Decir que la
-    #  red sube más rápido era falso: con el mismo IPC el ahorro sube en pesos
-    #  porque todo sube, pero su peso sobre la factura no se mueve.
+    #  Los dos porcentajes de inflación se pueden cambiar en simulador_ce.py,
+    #  así que el texto no puede dar por hecho que son iguales: tiene que
+    #  seguir al dato. Hoy los dos están en 5 %.
+    if abs(sim.INFLACION_RED_ANUAL - sim.INFLACION_CE_ANUAL) < 1e-9:
+        efecto = ("como suben lo mismo, tu ahorro crece en pesos año tras año, "
+                  "pero sigue siendo el mismo porcentaje de tu factura")
+    elif sim.INFLACION_RED_ANUAL > sim.INFLACION_CE_ANUAL:
+        efecto = ("como la red sube más rápido, la brecha se abre y tu ahorro "
+                  "crece año tras año, también como porcentaje de tu factura")
+    else:
+        efecto = ("como el precio de la comunidad sube más rápido que la red, "
+                  "la brecha se cierra y tu ahorro pierde terreno con los años")
     st.caption(f"Con el plan Estándar. La tarifa de red sube "
                f"{pct(sim.INFLACION_RED_ANUAL, 1)} al año y el precio de WE Power "
-               f"{pct(sim.INFLACION_CE_ANUAL, 1)}: como suben lo mismo, tu ahorro "
-               f"crece en pesos año tras año, pero sigue siendo el mismo "
-               f"porcentaje de tu factura.")
+               f"{pct(sim.INFLACION_CE_ANUAL, 1)}: {efecto}.")
 
     st.dataframe(pd.DataFrame([{
         "Año":               p["anio"],
@@ -831,6 +882,18 @@ with st.container(border=True):
         ciudad = st.text_input("Ciudad", placeholder="Ciudad",
                                key="f_ciudad",
                                on_change=solo_letras, args=("f_ciudad",))
+        #  Sin selección, el informe dice "su comercializador" a secas, que es
+        #  lo que dice hoy. Nunca queda un hueco ni un guion en la página.
+        comercializador = st.selectbox(
+            "Comercializador del cliente", COMERCIALIZADORES,
+            index=None, placeholder="¿Cuál es su comercializador?",
+            key="f_comercializador",
+            help="Sale en el informe. Si no lo escoges, el informe dice "
+                 "«su comercializador», sin nombre.")
+        if comercializador == "Otro":
+            comercializador = st.text_input(
+                "¿Cuál?", placeholder="Nombre del comercializador",
+                key="f_comercializador_otro")
     with f2:
         direccion = st.text_input("Dirección", placeholder="Dirección del predio",
                                   key="f_direccion")
@@ -860,6 +923,7 @@ if generar:
         datos = informe_pdf.armar_datos(
             {"nombre": nombre, "telefono": telefono, "direccion": direccion,
              "ciudad": ciudad, "correo": correo,
+             "comercializador": comercializador,
              "fecha": fecha.strftime("%d/%m/%Y"),
              "asesor_nombre": ASESOR_NOMBRE, "asesor_tel": ASESOR_TEL,
              "asesor_mail": ASESOR_MAIL},
