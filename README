@@ -157,15 +157,6 @@ imprime a PDF desde el navegador. Sale idéntico porque es la misma plantilla.
 | `.streamlit/config.toml` | El tema de la página: los colores de la marca. Va dentro de una carpeta llamada `.streamlit`, con el punto al principio. |
 | `logo_wepower.png` | El logo, en el encabezado de la página y en todas las del informe. Si falta, sale el nombre en texto. |
 
-Y tres archivos de pruebas:
-
-| Archivo | Qué comprueba |
-|---|---|
-| `test_simulador.py` | 43 chequeos del modelo: que ningún PDE se pase del tope legal, que el precio salga igual que en el Excel, que los planes queden en orden. |
-| `verificar_vs_excel.py` | Reproduce los 18 establecimientos del Excel del socio. Tiene que cuadrar al peso. |
-| `auditoria_comentarios.py` | 47 reglas sacadas de las revisiones de Carlos, Maira y Ricardo. Revisa que cada comentario siga aplicado, tanto en el informe como en la página. |
-
-
 ---
 
 ## Las reglas que no se pueden romper
