@@ -561,7 +561,9 @@ def construir_html(d):
 
   <p class="nota" style="margin-top:4mm">Recibe <b>dos facturas</b>: la de su
   proveedor actual y la de la Comunidad We Club, cada una por la cantidad de
-  energía correspondiente y con las tarifas que aplica cada uno.</p>
+  energía correspondiente y con las tarifas que aplica cada uno.
+  <b>Le paga a cada uno por separado</b>, como paga hoy cualquier otro servicio:
+  su proveedor no le cobra lo de We Club ni We Club le cobra lo de su proveedor.</p>
 
   <h3 style="margin-top:6mm">Por cada kWh que le cubrimos</h3>
   {_barras_kwh(d)}
@@ -637,13 +639,15 @@ def construir_html(d):
     <tr><td><b>Comunidad energética</b></td>
         <td>Agrupa a los usuarios, fija las reglas y asigna la energía entre ellos.</td></tr>
     <tr><td><b>Su comercializador</b></td>
-        <td>Compra, vende y factura la energía ante el mercado eléctrico. Sigue
-            siendo el mismo de siempre.</td></tr>
+        <td>Sigue siendo el mismo de siempre. <b>Le factura</b> la energía que
+            usted le compra a la red y el costo de comercialización.</td></tr>
     <tr><td><b>We Club</b></td>
         <td>Administra la comunidad, hace los trámites y traslada los beneficios
-            a sus miembros.</td></tr>
+            a sus miembros. <b>Le factura</b> la energía de la comunidad que le
+            cubrimos.</td></tr>
     <tr><td><b>Su empresa</b></td>
-        <td>Consume y paga. Delega en We Club la gestión y los trámites.</td></tr>
+        <td>Consume y <b>le paga a cada uno por separado</b>. Delega en We Club
+            la gestión y los trámites.</td></tr>
   </table>
   <p class="nota">{NOMBRE_SPV} estructura el proyecto, administra la comunidad y
   traslada sus beneficios a los miembros. La venta de energía la hace un
@@ -658,8 +662,8 @@ def construir_html(d):
   <p class="gris">Firmar la afiliación no tiene costo para su empresa.</p>
 
   <div class="paso"><div class="n">PASO 1 · HOY</div>
-    <b>Nos facilita una copia de su factura.</b> Con eso basta: con su última
-    factura hacemos el estudio de su consumo. No necesitamos nada más de usted.</div>
+    <b>Nos facilita una copia de su factura.</b> Con su última factura hacemos el
+    estudio de su consumo. En este paso no se requieren más documentos suyos.</div>
   <div class="paso"><div class="n">PASO 2 · EN 5 DÍAS HÁBILES</div>
     <b>Recibe su simulación.</b> Su ahorro estimado, su participación y su capacidad, con los supuestos a la vista.</div>
   <div class="paso"><div class="n">PASO 3 · SI LE SIRVE</div>
@@ -681,7 +685,7 @@ def construir_html(d):
 <div class="pagina">
   {_cab("¿Dudas? Aquí se las resolvemos", logo)}
   <h2>¿Dudas? Aquí se las resolvemos</h2>
-  <p class="gris">Preferimos que las resuelva ahora y no después de firmar.</p>
+  <p class="gris">Preferimos que las resuelva ahora y no después de afiliarse.</p>
 
   <table>
     <tr><th style="width:38%">Duda</th><th>Respuesta</th></tr>
