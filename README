@@ -1,0 +1,279 @@
+# WE Club · Calculadora de ahorro y oferta comercial
+
+Herramienta que usa el área comercial de WE POWER para mostrarle a una empresa
+cuánto puede ahorrar si entra a We Club, y para entregarle esa cuenta convertida
+en una oferta comercial en PDF.
+
+El recorrido completo es corto: un cliente nos pasa una copia de su factura,
+abrimos la página y escribimos cuánto paga de luz al mes, la página le muestra su
+ahorro, y si le interesa se descarga un informe con su nombre y sus números.
+
+
+---
+
+## Los tres códigos
+
+Son tres archivos y cada uno hace una cosa sola.
+
+```
+                  simulador_ce.py
+                  hace todas las cuentas
+                          |
+            +-------------+-------------+
+            |                           |
+    app_streamlit.py  ---------->  informe_pdf.py
+    lo muestra en      le pasa los   lo imprime
+    pantalla           resultados    en PDF
+```
+
+**Esa división es a propósito y no se debe romper.** La página y el informe no
+calculan nada: reciben los resultados ya hechos y solo los pintan. Si cada uno
+hiciera sus propias cuentas, tarde o temprano mostrarían números distintos para
+el mismo cliente.
+
+---
+
+### `simulador_ce.py` — la calculadora
+
+Es el único archivo que hace cuentas. Todo lo demás depende de él.
+
+**Qué calcula, en orden:**
+
+**1. El precio del kWh de la comunidad** — `precio_por_descuento()`. No se escribe a mano: se acuerda un
+descuento sobre el CU de la factura del cliente y el precio sale de ahí.
+
+```
+precio = CU × (1 − descuento) − Cv
+```
+
+Es la misma fórmula del Excel del socio (celda D10). Está verificada contra ese
+Excel en 192 escenarios, sin una sola diferencia.
+
+**2. El PDE** — `pde_por_cobertura()`. Es el porcentaje de la generación de la
+planta que le corresponde al cliente. Se deriva de su consumo: se mira qué parte de su consumo
+queremos cubrir, se divide entre lo que genera la planta al mes, y si el
+resultado se pasa del tope legal se recorta.
+
+**3. La energía asignada** — `energia_asignada()`. Es ese PDE convertido en kWh.
+
+**4. El balance del mes** — `balance_mensual()`. Aquí está el corazón del modelo. Arma dos facturas y
+las resta:
+
+```
+SIN comunidad     consumo × CU × 1,20
+
+CON comunidad     lo que le sigue comprando a la red, con contribución
+                + el cargo de comercialización por los kWh que le cubrimos
+                + lo que le paga a la comunidad por la energía asignada
+
+AHORRO            la diferencia entre las dos
+```
+
+Ese segundo renglón —el cargo de comercialización— es el que casi todos los
+modelos olvidan. Sale del Art. 26 de la Res. CREG 174 de 2021: por cada kWh
+permutado el comercializador acredita el CU y cobra de vuelta el Cv.
+
+Devuelve todo desglosado: la energía asignada, la que sigue comprando a la red,
+la factura de antes, la de ahora partida en sus tres pedazos, el ahorro del mes,
+el del año y el porcentaje de la factura.
+
+**5. La proyección** — `proyectar()`. Repite ese mismo mes una vez por año, moviendo solo los
+precios con la inflación, y va acumulando.
+
+**6. El reparto de una comunidad completa.** `repartir_por_consumo()` recibe los
+consumos de varios usuarios y reparte el 100 % de la planta entre todos, con la
+misma cobertura para cada uno, recortando a quien choque contra el tope.
+`validar_comunidad()` revisa que la suma dé 100 %, que ningún PDE llegue al 10 %
+y que haya suficientes fronteras. Esas dos funciones no las usa la página: están
+para armar y revisar comunidades reales.
+
+**Se puede usar sola**, sin página, corriendo `python3 simulador_ce.py`. Pregunta
+los datos por consola y escupe el mismo cálculo.
+
+---
+
+### `app_streamlit.py` — la página
+
+Es lo que se ve en el navegador. **No calcula nada**: le pide los resultados a la
+calculadora y los muestra.
+
+**Qué se puede ver, de arriba abajo:**
+
+- **La entrada.** El cliente escribe una sola cosa: cuánto paga de luz al mes.
+  También puede escribir su consumo en kWh, si lo sabe.
+- **El ahorro**, que es el número por el que vino, y ese mismo ahorro como
+  porcentaje de su factura.
+- **Su factura antes y después**, con el desglose de las dos facturas que va a
+  recibir.
+- **Por cada kWh**: dos barras a escala que comparan lo que cuesta un kilovatio
+  comprado a la red contra el mismo kilovatio con We Club, y debajo la cifra del
+  ahorro por kWh.
+- **Los tres planes**: Básico, Estándar y Premium. El Premium a propósito no
+  muestra cifra, solo invita a llamar.
+- **De dónde sale el ahorro**, la proyección a varios años y el respaldo.
+- **El formulario** para descargar el informe.
+
+Tiene además una **barra lateral** con los supuestos técnicos —el CU, el Cv, la
+contribución, el descuento pactado, el comercializador del cliente—. Esa la
+maneja el asesor, no el cliente.
+
+La página también bloquea lo que no se debe cotizar: si el consumo está por
+debajo del mínimo, o si el precio quedara tan alto que no habría ahorro, se
+detiene y lo explica en vez de mostrar un número raro.
+
+---
+
+### `informe_pdf.py` — el informe
+
+Arma el PDF de 8 páginas que el cliente se lleva. **Tampoco calcula nada**:
+recibe los mismos resultados que la página está mostrando en pantalla.
+
+| Página | Qué lleva |
+|---|---|
+| 1 | Portada, con el saludo por el nombre del cliente y quién es su asesor |
+| 2 | Su ahorro estimado, sus datos y cómo se calcula |
+| 3 | Su factura antes y después, y las barras del kWh |
+| 4 | La proyección con los años y los supuestos con que se hizo |
+| 5 | Qué cambia y qué no cambia, y quién es quién |
+| 6 | Cómo se afilia: cinco pasos y el cronograma de 16 semanas |
+| 7 | Las dudas frecuentes y qué es lo que se firma |
+| 8 | El cierre, los datos del asesor y la vigencia de la oferta |
+
+Está hecho con HTML y CSS, y se convierte a PDF con WeasyPrint. Las barras del
+kWh y el cronograma **se dibujan solos** con los datos de cada cliente: no son
+imágenes.
+
+Si WeasyPrint llegara a fallar, el informe se entrega en HTML y el cliente lo
+imprime a PDF desde el navegador. Sale idéntico porque es la misma plantilla.
+
+
+---
+
+## Los archivos de apoyo
+
+| Archivo | Para qué |
+|---|---|
+| `requirements.txt` | Las librerías de Python: `streamlit`, `pandas`, `weasyprint`. |
+| `packages.txt` | Librerías del sistema que necesita WeasyPrint, más la fuente Carlito. **Sin esto el informe no sale en PDF.** |
+| `.streamlit/config.toml` | El tema de la página: los colores de la marca. Va dentro de una carpeta llamada `.streamlit`, con el punto al principio. |
+| `logo_wepower.png` | El logo, en el encabezado de la página y en todas las del informe. Si falta, sale el nombre en texto. |
+
+Y tres archivos de pruebas:
+
+| Archivo | Qué comprueba |
+|---|---|
+| `test_simulador.py` | 43 chequeos del modelo: que ningún PDE se pase del tope legal, que el precio salga igual que en el Excel, que los planes queden en orden. |
+| `verificar_vs_excel.py` | Reproduce los 18 establecimientos del Excel del socio. Tiene que cuadrar al peso. |
+| `auditoria_comentarios.py` | 47 reglas sacadas de las revisiones de Carlos, Maira y Ricardo. Revisa que cada comentario siga aplicado, tanto en el informe como en la página. |
+
+
+---
+
+## Las reglas que no se pueden romper
+
+No son decisiones nuestras. Salen de la regulación y del negocio. Están todas en
+la sección de parámetros de `simulador_ce.py`.
+
+| Regla | Constante | Por qué |
+|---|---|---|
+| **Cada usuario por debajo del 10 %** de la generación | `PDE_MAXIMO_LEGAL = 0.099` | Art. 20, Res. CREG 101 072 de 2025. Si un solo usuario se pasa, **la comunidad entera** pierde el régimen de créditos de energía. Por eso 9,9 y no 10. |
+| **Mínimo 11 fronteras** | `MIN_FRONTERAS = 11` | Sale de la anterior: con 10 usuarios el promedio da exactamente 10 %, y eso ya no es "menos del 10 %". |
+| **Contribución del 20 %** | `CONTRIBUCION = 0.20` | Ley 142 de 1994. Los industriales exentos por código CIIU (Ley 1430 de 2010) no la pagan, y eso cambia el ahorro. |
+| **Consumo mínimo de 4.500 kWh/mes** | `CONSUMO_MINIMO_KWH` | El servicio es para empresas, no para hogares (RN-011). Por debajo de eso no se cotiza. |
+
+El **PDE que muestra la herramienta es una estimación** derivada del consumo. El
+definitivo se pacta al firmar, con la comunidad ya armada.
+
+
+---
+
+## Dónde se cambia cada cosa
+
+Todo lo que se toca con frecuencia está en constantes, arriba de cada archivo.
+No busques estos valores regados por el código: están en un solo sitio.
+
+**En `simulador_ce.py`**
+
+| Constante | Qué es | Hoy |
+|---|---|---|
+| `GENERACION_ANUAL_KWH` | Cuánto genera la planta al año | 1.800.000 kWh |
+| `TOPE_CONSUMO` | Qué parte del consumo cubre el plan Estándar | 80 % |
+| `PDE_ESCENARIO_MINIMO` | El PDE del plan Básico | 3 % |
+| `INFLACION_RED_ANUAL` / `INFLACION_CE_ANUAL` | Cuánto sube cada precio al año en la proyección | 5 % y 5 % |
+| `CAPACIDAD_INSTALADA_KWP` | La potencia de la planta | **Pendiente**, sigue en `None` |
+
+Si dejas las dos inflaciones distintas, los textos de la página y del informe se
+reacomodan solos: dejan de decir "suben lo mismo" y explican qué pasa con la
+brecha.
+
+**En `app_streamlit.py`**
+
+| Constante | Qué es |
+|---|---|
+| `DESCUENTOS` | Los descuentos del selector. Hoy "10 %" y "Otro". |
+| `ASESOR_NOMBRE`, `ASESOR_TEL`, `ASESOR_MAIL` | Los datos del asesor que salen en el informe. |
+| `COMERCIALIZADORES` | La lista del desplegable. Sale del Boletín Tarifario de la Superintendencia de Servicios Públicos. Conviene revisarla de vez en cuando. |
+| `ANIOS_MAXIMOS` | Hasta cuántos años se puede proyectar. Son 10 porque es lo que cabe en la página del informe; con 11 el PDF se pasa a 9 páginas. |
+| `AZUL`, `NARANJA`, … | Los colores. Son los mismos de `informe_pdf.py`: si cambia la marca hay que cambiarlos en los dos. |
+
+**En `informe_pdf.py`**
+
+| Constante | Qué es |
+|---|---|
+| `NOMBRE_SPV` | Quién estructura el proyecto y administra la comunidad. Hoy, "We Club". |
+| `ETAPAS` | Las cuatro etapas del cronograma de la página 6, con sus semanas. El dibujo se reacomoda solo. |
+
+
+---
+
+## Cómo se corre
+
+En tu computador:
+
+```bash
+pip install -r requirements.txt
+streamlit run app_streamlit.py
+```
+
+En Streamlit Cloud, la app lee lo que haya en GitHub: subes los archivos, entras
+a **Manage app** y le das **Reboot**.
+
+Después de tocar cualquier cosa, las tres pruebas tienen que terminar en verde:
+
+```bash
+python3 test_simulador.py
+python3 verificar_vs_excel.py
+python3 auditoria_comentarios.py
+```
+
+La última existe porque ya pasó una vez que se arregló un texto en el informe y
+se quedó sin arreglar en la página.
+
+
+---
+
+## Lo que falta
+
+- **La potencia de la planta** (`CAPACIDAD_INSTALADA_KWP`) sigue sin dato.
+- **El envío del informe por correo** (RF-010). Hoy se descarga, no se envía.
+- **La base de datos de clientes potenciales** (RF-011 y RF-014). Hoy no se
+  guarda nada: la oferta se genera y se va.
+- **La edición de parámetros sin código** (RF-012). Desde la pantalla se ajustan
+  CU, Cv, contribución, descuento y años; el tope de cobertura, el PDE máximo, el
+  PDE mínimo y el IPC siguen siendo constantes del código.
+- **El texto de habeas data** sigue como marcador provisional, pendiente de
+  Jurídica (Ley 1581 de 2012).
+
+
+---
+
+## Dos advertencias para el que venga después
+
+**No metas cuentas en la página ni en el informe.** Si necesitas un número nuevo,
+lo calcula `simulador_ce.py` y se lo pasa a los otros dos. Es lo único que
+garantiza que la pantalla y el papel digan lo mismo.
+
+**No borres las frases obligatorias del informe.** Que las cifras son una
+estimación y no una oferta vinculante, la autorización de tratamiento de datos y
+la mención a las resoluciones CREG tienen que estar. `auditoria_comentarios.py`
+avisa si alguna se cae.
